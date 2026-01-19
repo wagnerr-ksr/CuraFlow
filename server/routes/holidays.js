@@ -1,9 +1,8 @@
 import express from 'express';
 import { db } from '../index.js';
-import { authMiddleware } from './auth.js';
 
 const router = express.Router();
-router.use(authMiddleware);
+// Holidays are public - no auth required
 
 // ===== GET HOLIDAYS =====
 router.get('/', async (req, res, next) => {

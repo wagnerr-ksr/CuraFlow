@@ -4,8 +4,13 @@ import { authMiddleware } from './auth.js';
 
 const router = express.Router();
 
-// All dbProxy routes require authentication
-router.use(authMiddleware);
+// Tables that can be read without authentication
+const PUBLIC_READ_TABLES = [
+  'SystemSetting',
+  'ColorSetting',
+  'Workplace',
+  'DemoSetting'
+];
 
 // Cache for table columns to avoid "Unknown column" errors
 const COLUMNS_CACHE = {};
@@ -71,15 +76,38 @@ const getValidColumns = async (tableName) => {
 // ============ UNIFIED DB PROXY ENDPOINT ============
 router.post('/', async (req, res, next) => {
   try {
-    const { action, entity, data, id, query, sort, limit, skip } = req.body;
+    const { action, entity, table, data, id, query, sort, limit, skip } = req.body;
+    const tableName = entity || table;
     
-    if (!entity) {
-      return res.status(400).json({ error: 'Entity required' });
+    if (!tableName) {
+      return res.status(400).json({ error: 'Entity/table required' });
+    }
+    
+    // Check if this is a public read operation
+    const isPublicRead = PUBLIC_READ_TABLES.includes(tableName) && 
+                         (action === 'list' || action === 'filter' || action === 'get');
+    
+    // Require auth for non-public operations
+    if (!isPublicRead) {
+      // Check for auth token
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Nicht autorisiert' });
+      }
+      
+      // Verify token (inline check)
+      const token = authHeader.split(' ')[1];
+      try {
+        const jwt = await import('jsonwebtoken');
+        jwt.default.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        return res.status(401).json({ error: 'Token ungültig' });
+      }
     }
     
     // ===== LIST / FILTER =====
     if (action === 'list' || action === 'filter') {
-      let sql = `SELECT * FROM \`${entity}\``;
+      let sql = `SELECT * FROM \`${tableName}\``;
       const params = [];
       
       const filters = query || req.body.filters || {};
