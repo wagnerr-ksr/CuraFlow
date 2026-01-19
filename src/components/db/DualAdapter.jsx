@@ -1,21 +1,25 @@
 import { base44 } from '@/api/base44Client';
 import { Base44Adapter } from './Base44Adapter';
 import { MySQLAdapter } from './MySQLAdapter';
+import { RailwayAdapter } from './RailwayAdapter';
 import _ from 'lodash';
 
+// Check if Railway mode is enabled via environment variable
+const USE_RAILWAY = import.meta.env.VITE_USE_RAILWAY === 'true';
+
 // Cache for DB Mode to avoid fetching on every call
-// Default to MySQL mode since we're using external DB only now
-let cachedMode = 'mysql'; 
-let lastFetch = Date.now(); // Pretend we just fetched
+// Default based on environment: Railway or MySQL
+let cachedMode = USE_RAILWAY ? 'railway' : 'mysql'; 
+let lastFetch = Date.now();
 const CACHE_TTL = 30000; // 30 seconds
 
-// Initialize from localStorage (but default is now 'mysql')
+// Initialize from localStorage
 try {
     const localMode = localStorage.getItem('radioplan_db_mode');
     if (localMode) cachedMode = localMode;
-    else cachedMode = 'mysql'; // Force MySQL if nothing stored
+    else cachedMode = USE_RAILWAY ? 'railway' : 'mysql';
 } catch {
-    cachedMode = 'mysql';
+    cachedMode = USE_RAILWAY ? 'railway' : 'mysql';
 }
 
 // Export helper to force set mode (for admin panel)
@@ -102,12 +106,22 @@ const logMismatch = async (entityName, method, id, internalData, mysqlData, erro
 export class DualAdapter {
     constructor(entityName) {
         this.entityName = entityName;
-        this.internal = new Base44Adapter(entityName);
-        this.mysql = new MySQLAdapter(entityName);
+        
+        // Initialize adapters based on environment
+        if (USE_RAILWAY) {
+            this.railway = new RailwayAdapter(entityName);
+            this.mysql = null; // Not used in Railway mode
+        } else {
+            this.internal = new Base44Adapter(entityName);
+            this.mysql = new MySQLAdapter(entityName);
+        }
     }
 
     async getMode() {
-        // For SystemSetting/User, always use internal to avoid recursion loop or because they are platform-managed
+        // If Railway mode is enabled, always use railway
+        if (USE_RAILWAY) return 'railway';
+        
+        // For SystemSetting/User, always use internal to avoid recursion loop
         if (this.entityName === 'SystemSetting' || this.entityName === 'SystemLog' || this.entityName === 'User') return 'internal';
         return await getDbMode();
     }
@@ -117,9 +131,13 @@ export class DualAdapter {
     async list(sort, limit, skip) {
         const mode = await this.getMode();
         
+        // Railway mode: use Railway adapter directly
+        if (mode === 'railway') return this.railway.list(sort, limit, skip);
+        
+        // MySQL mode
         if (mode === 'mysql') return this.mysql.list(sort, limit, skip);
         
-        // Default: Internal is source of truth
+        // Base44 mode (internal)
         const internalResult = await this.internal.list(sort, limit, skip);
 
         if (mode === 'parallel_read_write') {
@@ -150,8 +168,13 @@ export class DualAdapter {
     async filter(query, sort, limit, skip) {
         const mode = await this.getMode();
 
+        // Railway mode
+        if (mode === 'railway') return this.railway.filter(query, sort, limit, skip);
+
+        // MySQL mode
         if (mode === 'mysql') return this.mysql.filter(query, sort, limit, skip);
 
+        // Base44 mode
         const internalResult = await this.internal.filter(query, sort, limit, skip);
 
         if (mode === 'parallel_read_write') {
@@ -179,8 +202,13 @@ export class DualAdapter {
     async get(id) {
         const mode = await this.getMode();
 
+        // Railway mode
+        if (mode === 'railway') return this.railway.get(id);
+
+        // MySQL mode
         if (mode === 'mysql') return this.mysql.get(id);
 
+        // Base44 mode
         const internalResult = await this.internal.get(id);
 
         if (mode === 'parallel_read_write') {
@@ -219,9 +247,13 @@ export class DualAdapter {
 
         const mode = await this.getMode();
 
+        // Railway mode
+        if (mode === 'railway') return this.railway.create(data);
+
+        // MySQL mode
         if (mode === 'mysql') return this.mysql.create(data);
 
-        // Always write to Internal first if not mysql-only
+        // Base44 mode
         const result = await this.internal.create(data);
 
         if (mode === 'parallel_write' || mode === 'parallel_read_write') {
@@ -243,8 +275,13 @@ export class DualAdapter {
     async update(id, data) {
         const mode = await this.getMode();
 
+        // Railway mode
+        if (mode === 'railway') return this.railway.update(id, data);
+
+        // MySQL mode
         if (mode === 'mysql') return this.mysql.update(id, data);
 
+        // Base44 mode
         const result = await this.internal.update(id, data);
 
         if (mode === 'parallel_write' || mode === 'parallel_read_write') {
@@ -261,8 +298,13 @@ export class DualAdapter {
     async delete(id) {
         const mode = await this.getMode();
 
+        // Railway mode
+        if (mode === 'railway') return this.railway.delete(id);
+
+        // MySQL mode
         if (mode === 'mysql') return this.mysql.delete(id);
 
+        // Base44 mode
         const result = await this.internal.delete(id);
 
         if (mode === 'parallel_write' || mode === 'parallel_read_write') {
@@ -320,8 +362,13 @@ export class DualAdapter {
 
         const mode = await this.getMode();
 
+        // Railway mode
+        if (mode === 'railway') return this.railway.bulkCreate(filteredData);
+
+        // MySQL mode
         if (mode === 'mysql') return this.mysql.bulkCreate(filteredData);
 
+        // Base44 mode
         const result = await this.internal.bulkCreate(filteredData);
 
         if (mode === 'parallel_write' || mode === 'parallel_read_write') {
