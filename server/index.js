@@ -36,36 +36,54 @@ export const db = createPool({
   timezone: '+00:00'
 });
 
-// Middleware
-app.use(helmet()); // Security headers
-app.use(compression()); // Gzip compression
-
-// CORS Configuration
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [
-      process.env.FRONTEND_URL,
-      'https://curaflow-production.up.railway.app'
-    ].filter(Boolean)
-  : ['http://localhost:5173', 'http://localhost:3000'];
+// CORS Configuration - MUST be before other middleware!
+const allowedOrigins = [
+  'https://curaflow-production.up.railway.app',
+  'https://curaflow-frontend-production.up.railway.app',
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:3000'
+].filter(Boolean);
 
 console.log('CORS allowed origins:', allowedOrigins);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
+// Handle preflight requests explicitly
+app.options('*', cors({
+  origin: true, // Allow all origins for preflight
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.some(allowed => origin === allowed || origin.endsWith('.railway.app'))) {
+    // Allow all railway.app subdomains
+    if (origin.endsWith('.railway.app')) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.warn('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Allow anyway for debugging - change to false in production
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Security & Compression - AFTER CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "unsafe-none" }
+}));
+app.use(compression());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
