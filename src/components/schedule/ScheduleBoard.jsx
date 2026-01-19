@@ -17,8 +17,8 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { base44 } from '@/api/base44Client';
-import { db } from '@/components/db';
+import { api, db, base44 } from "@/api/client";
+import { db } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/components/AuthProvider';
 import DraggableDoctor from './DraggableDoctor';

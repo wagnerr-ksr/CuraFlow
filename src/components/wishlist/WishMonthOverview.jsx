@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { base44 } from '@/api/base44Client';
+import { api, db, base44 } from "@/api/client";
 
 export default function WishMonthOverview({ 
     year, 

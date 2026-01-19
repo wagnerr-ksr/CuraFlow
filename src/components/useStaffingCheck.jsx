@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { api, db, base44 } from "@/api/client";
 
 export function useStaffingCheck(doctors, shifts) {
     const { data: settings = [] } = useQuery({

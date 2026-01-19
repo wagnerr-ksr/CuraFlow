@@ -3,7 +3,7 @@ import { Mic, MicOff, Loader2, HelpCircle, AlertCircle, Volume2, Radio, Bot } fr
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuCheckboxItem, ContextMenuSeparator } from "@/components/ui/context-menu";
-import { base44 } from '@/api/base44Client';
+import { api, db, base44 } from "@/api/client";
 import { format, startOfWeek, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import VoiceTrainingDialog from './VoiceTrainingDialog';

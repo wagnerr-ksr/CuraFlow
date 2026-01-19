@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
-import { db } from '@/components/db';
+import { api, db, base44 } from "@/api/client";
+import { db } from '@/api/client';
 import { useAuth } from '@/components/AuthProvider';
 import { format, isAfter, parseISO, startOfDay, addMonths, isSameDay, isValid } from 'date-fns';
 import { de } from 'date-fns/locale';

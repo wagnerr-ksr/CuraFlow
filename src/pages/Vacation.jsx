@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
-import { db } from '@/components/db';
+import { api, db, base44 } from "@/api/client";
+import { db } from '@/api/client';
 import { useAuth } from '@/components/AuthProvider';
 import { format, getYear, startOfYear, endOfYear, eachDayOfInterval, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Eraser, Wand2 } from 'lucide-react';

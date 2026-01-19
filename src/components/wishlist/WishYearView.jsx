@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format, startOfYear, endOfYear, eachMonthOfInterval, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDay, isWeekend } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
-import { base44 } from '@/api/base44Client';
+import { api, db, base44 } from "@/api/client";
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

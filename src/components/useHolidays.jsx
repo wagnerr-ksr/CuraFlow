@@ -1,7 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
-import { db } from '@/components/db';
+import { api, db, base44 } from "@/api/client";
 import { HolidayCalculator } from '@/components/schedule/holidayUtils';
 
 export function useHolidays(yearOverride) {
@@ -29,8 +28,7 @@ export function useHolidays(yearOverride) {
         queryKey: ['externalHolidays', stateCode, year],
         queryFn: async () => {
             try {
-                const response = await base44.functions.invoke('getHolidays', { year, stateCode });
-                return response.data;
+                return await api.getHolidays(year, stateCode);
             } catch (err) {
                 console.error("Error fetching holidays", err);
                 return { school: [], public: [] };

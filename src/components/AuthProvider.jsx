@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 
 // Configuration: Set to true to use custom JWT auth, false for Base44 auth
 const USE_CUSTOM_AUTH = true; // Custom JWT auth enabled
@@ -56,27 +56,11 @@ const JWTAuthProviderInner = ({ children }) => {
             }
 
             try {
-                const fetchResponse = await fetch(
-                    `${window.location.origin}/api/functions/auth`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${storedToken}`
-                        },
-                        body: JSON.stringify({ action: 'me' })
-                    }
-                );
-
-                if (fetchResponse.ok) {
-                    const userData = await fetchResponse.json();
-                    setUser(userData);
-                    setToken(storedToken);
-                    setIsAuthenticated(true);
-                } else {
-                    storeToken(null);
-                    setIsAuthenticated(false);
-                }
+                api.setToken(storedToken);
+                const userData = await api.me();
+                setUser(userData);
+                setToken(storedToken);
+                setIsAuthenticated(true);
             } catch (error) {
                 console.error('Auth check failed:', error);
                 storeToken(null);
@@ -90,26 +74,11 @@ const JWTAuthProviderInner = ({ children }) => {
     }, []);
 
     const login = async (email, password) => {
-        const response = await fetch(
-            `${window.location.origin}/api/functions/auth`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'login', email, password })
-            }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Login fehlgeschlagen');
-        }
-
+        const data = await api.login(email, password);
         storeToken(data.token);
         setToken(data.token);
         setUser(data.user);
         setIsAuthenticated(true);
-
         return data;
     };
 
@@ -126,22 +95,9 @@ const JWTAuthProviderInner = ({ children }) => {
         if (!currentToken) return;
 
         try {
-            const response = await fetch(
-                `${window.location.origin}/api/functions/auth`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${currentToken}`
-                    },
-                    body: JSON.stringify({ action: 'me' })
-                }
-            );
-
-            if (response.ok) {
-                const userData = await response.json();
-                setUser(userData);
-            }
+            api.setToken(currentToken);
+            const userData = await api.me();
+            setUser(userData);
         } catch (error) {
             console.error('Refresh user failed:', error);
         }
@@ -151,19 +107,8 @@ const JWTAuthProviderInner = ({ children }) => {
         const currentToken = token || getStoredToken();
         if (!currentToken) throw new Error('Nicht eingeloggt');
 
-        const response = await fetch(
-            `${window.location.origin}/api/functions/auth`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentToken}`
-                },
-                body: JSON.stringify({ action: 'updateMe', data })
-            }
-        );
-
-        const result = await response.json();
+        api.setToken(currentToken);
+        const result = await api.updateMe(data);
 
         if (!response.ok) {
             throw new Error(result.error || 'Update fehlgeschlagen');

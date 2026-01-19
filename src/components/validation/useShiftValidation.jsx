@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { db } from '@/components/db';
-import { base44 } from '@/api/base44Client';
+import { db } from '@/api/client';
+import { api, db, base44 } from "@/api/client";
 import { useMemo } from 'react';
 import { ShiftValidator } from './ShiftValidation';
 import { toast } from 'sonner';

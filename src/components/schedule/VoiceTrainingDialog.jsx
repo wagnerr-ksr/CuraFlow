@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Mic, MicOff, Loader2, Trash2, Plus, Volume2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
-import { db } from '@/components/db';
+import { api, db, base44 } from "@/api/client";
+import { db } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { toast } from "sonner";

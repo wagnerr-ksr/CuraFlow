@@ -3,8 +3,7 @@ import { Mic, MicOff, Loader2, HelpCircle, AlertCircle, Volume2, Radio, Bot } fr
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuCheckboxItem, ContextMenuSeparator } from "@/components/ui/context-menu";
-import { base44 } from '@/api/base44Client';
-import { db } from '@/components/db';
+import { api, db, base44 } from "@/api/client";
 import { format, startOfWeek, addDays, startOfMonth, endOfMonth, addMonths, isWeekend } from 'date-fns';
 import { de } from 'date-fns/locale';
 import VoiceTrainingDialog from './schedule/VoiceTrainingDialog';
@@ -498,8 +497,7 @@ export default function GlobalVoiceControl() {
                     setIsProcessing(true);
                     setTranscript("Transkribiere Audio...");
                     try {
-                        const res = await base44.functions.invoke('transcribeAudio', { audioBase64: base64Audio });
-                        const text = res.data.text;
+                        const text = await api.transcribeAudio(blob);
                         if (text) {
                             setTranscript(text);
                             handleSendTextRef.current(text);
@@ -606,12 +604,7 @@ export default function GlobalVoiceControl() {
                 weekContext: weekContext
             };
 
-            const response = await base44.functions.invoke('processVoiceAudio', {
-                text: text,
-                context: context
-            });
-            
-            const result = response.data;
+            const result = await api.processVoiceCommand(text);
             if (result.corrected_text) setTranscript(result.corrected_text);
             onVoiceCommand(result);
             

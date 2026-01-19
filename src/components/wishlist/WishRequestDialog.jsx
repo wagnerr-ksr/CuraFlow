@@ -9,8 +9,8 @@ import { format, addMonths, isBefore, startOfDay } from "date-fns";
 import { de } from "date-fns/locale";
 import { CheckCircle2, XCircle, Trash2, AlertCircle, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
-import { db } from '@/components/db';
+import { api, db, base44 } from "@/api/client";
+import { db } from '@/api/client';
 
 export default function WishRequestDialog({ 
     isOpen, 

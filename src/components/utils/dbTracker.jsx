@@ -1,5 +1,5 @@
 
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 
 let pendingCount = 0;
 let debounceTimeout = null;
