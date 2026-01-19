@@ -4,6 +4,7 @@
  */
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const TOKEN_KEY = 'radioplan_jwt_token';
 
 class APIClient {
   constructor() {
@@ -11,14 +12,14 @@ class APIClient {
   }
 
   getToken() {
-    return localStorage.getItem('railway_auth_token');
+    return localStorage.getItem(TOKEN_KEY);
   }
 
   setToken(token) {
     if (token) {
-      localStorage.setItem('railway_auth_token', token);
+      localStorage.setItem(TOKEN_KEY, token);
     } else {
-      localStorage.removeItem('railway_auth_token');
+      localStorage.removeItem(TOKEN_KEY);
     }
   }
 
