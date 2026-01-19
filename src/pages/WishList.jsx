@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, db, base44 } from "@/api/client";
-import { db } from '@/api/client';
 import { useAuth } from '@/components/AuthProvider';
 import { format, getYear } from 'date-fns';
 import { ChevronLeft, ChevronRight, Eraser, CheckCircle2, XCircle } from 'lucide-react';

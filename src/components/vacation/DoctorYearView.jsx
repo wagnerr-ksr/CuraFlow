@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { cn } from "@/lib/utils";
 import { useQuery } from '@tanstack/react-query';
 import { api, db, base44 } from "@/api/client";
-import { db } from '@/api/client';
 import { DEFAULT_COLORS } from '@/components/settings/ColorSettingsDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 

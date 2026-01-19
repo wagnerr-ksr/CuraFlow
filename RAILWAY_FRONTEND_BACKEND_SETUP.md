@@ -1,5 +1,21 @@
 # 🚀 Railway: Frontend + Backend Setup
 
+## ✅ Aktuelle Architektur (Vereinfacht!)
+
+```
+Frontend (React/Vite)
+    ↓
+Railway API Client (/src/api/client.js)
+    ↓
+Railway Backend (Express.js)
+    ↓
+MySQL Database
+```
+
+**Keine Adapter mehr! Direkte API-Kommunikation.**
+
+---
+
 ## ✅ Deine Situation
 
 - **Frontend**: Bereits auf Railway (via GitHub)
@@ -67,10 +83,13 @@ Füge hinzu (oder aktualisiere):
 
 ```env
 VITE_API_URL=https://deine-backend-url.railway.app
-VITE_USE_RAILWAY=true
 ```
 
-💡 Railway deployed automatisch neu!
+💡 **Wichtig:** Nach Änderung von Environment Variables muss Frontend neu deployen!
+- Railway Dashboard → Frontend Service → Deployments → "Redeploy"
+- Oder: Dummy-Commit pushen um Rebuild zu triggern
+
+💡 Railway deployed automatisch bei Git Push!
 
 ---
 
@@ -148,7 +167,8 @@ Bei Git Push:
 | Variable | Wert |
 |----------|------|
 | `VITE_API_URL` | Backend Railway URL |
-| `VITE_USE_RAILWAY` | `true` |
+
+**Hinweis:** `VITE_USE_RAILWAY` wird nicht mehr benötigt - das System nutzt jetzt ausschließlich Railway!
 
 ---
 

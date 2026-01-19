@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { api, db, base44 } from "@/api/client";
-import { db } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/components/AuthProvider';
 import DraggableDoctor from './DraggableDoctor';

@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { CalendarDays, Users, Activity, LogOut, GraduationCap, LogIn, Eye, Lock, BarChart3, HelpCircle, LayoutDashboard, Flower2 } from 'lucide-react';
 import { api, db, base44 } from "@/api/client";
-import { db } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/components/AuthProvider';
 

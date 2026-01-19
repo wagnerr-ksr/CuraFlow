@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, db, base44 } from "@/api/client";
-import { db } from '@/api/client';
 import { useAuth } from '@/components/AuthProvider';
 import { format, startOfYear, endOfYear, eachMonthOfInterval, getMonth } from 'date-fns';
 import { de } from 'date-fns/locale';
