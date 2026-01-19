@@ -1,0 +1,18 @@
+# Nixpacks Configuration
+# Force Node.js provider, ignore TypeScript files outside /server
+
+[variables]
+NIXPACKS_NODE_VERSION = "18"
+
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "npm-9_x"]
+nixLibs = []
+
+[phases.install]
+cmds = ["npm install --production"]
+
+[phases.build]
+cmds = []
+
+[start]
+cmd = "npm start"
