@@ -257,23 +257,6 @@ class APIClient {
 
   // ==================== Admin ====================
 
-  async listUsers() {
-    return this.request('/api/auth/users');
-  }
-
-  async updateUser(userId, updates) {
-    return this.request(`/api/auth/users/${userId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
-    });
-  }
-
-  async deleteUser(userId) {
-    return this.request(`/api/auth/users/${userId}`, {
-      method: 'DELETE',
-    });
-  }
-
   async getDatabaseStats() {
     return this.request('/api/admin/stats');
   }
