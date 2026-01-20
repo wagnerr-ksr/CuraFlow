@@ -200,8 +200,10 @@ router.patch('/me', authMiddleware, async (req, res, next) => {
     for (const [key, value] of Object.entries(data)) {
       if (allowedFields.includes(key)) {
         updates.push(`\`${key}\` = ?`);
-        // Serialize arrays/objects
-        if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+        // Handle null explicitly, then objects/arrays
+        if (value === null) {
+          values.push(null);
+        } else if (Array.isArray(value) || typeof value === 'object') {
           values.push(JSON.stringify(value));
         } else {
           values.push(value);
@@ -299,7 +301,10 @@ router.patch('/users/:userId', authMiddleware, adminMiddleware, async (req, res,
     for (const [key, value] of Object.entries(data)) {
       if (allowedFields.includes(key)) {
         updates.push(`\`${key}\` = ?`);
-        if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+        // Handle null explicitly, then objects/arrays
+        if (value === null) {
+          values.push(null);
+        } else if (Array.isArray(value) || typeof value === 'object') {
           values.push(JSON.stringify(value));
         } else {
           values.push(value);
