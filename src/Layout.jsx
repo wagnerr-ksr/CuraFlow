@@ -90,8 +90,10 @@ function LayoutContent({ children }) {
     }
   }, [isAuthenticated, isLoading, isAuthPage, navigate]);
 
+  const { logout } = useAuth();
+
   const handleLogout = () => {
-    base44.auth.logout();
+    logout();
   };
 
   const handleLogin = () => {

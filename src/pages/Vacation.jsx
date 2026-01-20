@@ -17,7 +17,7 @@ import { useHolidays } from '@/components/useHolidays';
 import { DEFAULT_COLORS } from '@/components/settings/ColorSettingsDialog';
 
 export default function VacationPage() {
-  const { isReadOnly } = useAuth();
+  const { isReadOnly, user } = useAuth();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const { isSchoolHoliday, isPublicHoliday } = useHolidays(selectedYear);
   const [selectedDoctorId, setSelectedDoctorId] = useState(null);
@@ -37,12 +37,16 @@ export default function VacationPage() {
     }),
   });
 
-  // Select first doctor by default if none selected
+  // Select doctor: prefer user's assigned doctor, otherwise first in list
   React.useEffect(() => {
     if (doctors.length > 0 && !selectedDoctorId) {
-      setSelectedDoctorId(doctors[0].id);
+      if (user?.doctor_id && doctors.some(d => d.id === user.doctor_id)) {
+        setSelectedDoctorId(user.doctor_id);
+      } else {
+        setSelectedDoctorId(doctors[0].id);
+      }
     }
-  }, [doctors, selectedDoctorId]);
+  }, [doctors, selectedDoctorId, user]);
 
   const selectedDoctor = doctors.find(d => d.id === selectedDoctorId);
 
