@@ -18,7 +18,7 @@ export default function ThemeSelector({ open, onOpenChange }) {
 
     const handleSave = async () => {
         if (user) {
-            await base44.auth.updateMe({ theme: selectedTheme });
+            await api.updateMe({ data: { theme: selectedTheme } });
             if (refreshUser) await refreshUser();
             onOpenChange(false);
         }

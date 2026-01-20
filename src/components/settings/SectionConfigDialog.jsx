@@ -109,7 +109,7 @@ export default function SectionConfigDialog() {
         setIsSaving(true);
         try {
             const configData = JSON.stringify({ sections });
-            await base44.auth.updateMe({ section_config: configData });
+            await api.updateMe({ data: { section_config: configData } });
             if (refreshUser) await refreshUser();
             toast.success('Konfiguration gespeichert');
             setOpen(false);

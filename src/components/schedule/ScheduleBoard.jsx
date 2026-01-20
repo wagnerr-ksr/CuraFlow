@@ -194,7 +194,7 @@ export default function ScheduleBoard() {
   useEffect(() => {
       localStorage.setItem('radioplan_highlightMyName', JSON.stringify(highlightMyName));
       if (user && user.highlight_my_name !== highlightMyName) {
-          base44.auth.updateMe({ highlight_my_name: highlightMyName }).catch(e => console.error("Pref save failed", e));
+          api.updateMe({ data: { highlight_my_name: highlightMyName } }).catch(e => console.error("Pref save failed", e));
       }
   }, [highlightMyName, user]);
 
@@ -226,14 +226,14 @@ export default function ScheduleBoard() {
   useEffect(() => {
       localStorage.setItem('radioplan_showSidebar', JSON.stringify(showSidebar));
       if (user && user.schedule_show_sidebar !== showSidebar) {
-          base44.auth.updateMe({ schedule_show_sidebar: showSidebar }).catch(e => console.error("Pref save failed", e));
+          api.updateMe({ data: { schedule_show_sidebar: showSidebar } }).catch(e => console.error("Pref save failed", e));
       }
   }, [showSidebar, user]);
 
   useEffect(() => {
       localStorage.setItem('radioplan_hiddenRows', JSON.stringify(hiddenRows));
       if (user && JSON.stringify(user.schedule_hidden_rows) !== JSON.stringify(hiddenRows)) {
-          base44.auth.updateMe({ schedule_hidden_rows: hiddenRows }).catch(e => console.error("Pref save failed", e));
+          api.updateMe({ data: { schedule_hidden_rows: hiddenRows } }).catch(e => console.error("Pref save failed", e));
       }
   }, [hiddenRows, user]);
 
@@ -248,7 +248,7 @@ export default function ScheduleBoard() {
           // However, updateMe triggers user update which triggers effect.
           // We should only updateMe if the value is different from what's in user object currently.
           if (JSON.stringify(user.collapsed_sections) !== JSON.stringify(collapsedSections)) {
-             base44.auth.updateMe({ collapsed_sections: collapsedSections }).catch(e => console.error("Pref save failed", e));
+             api.updateMe({ data: { collapsed_sections: collapsedSections } }).catch(e => console.error("Pref save failed", e));
           }
       }
   }, [collapsedSections, user]);
