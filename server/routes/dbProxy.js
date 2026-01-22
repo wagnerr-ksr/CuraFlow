@@ -1,6 +1,7 @@
 import express from 'express';
 import { db } from '../index.js';
 import { authMiddleware } from './auth.js';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -99,7 +100,8 @@ router.post('/', async (req, res, next) => {
       const token = authHeader.split(' ')[1];
       try {
         const jwt = await import('jsonwebtoken');
-        jwt.default.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.default.verify(token, process.env.JWT_SECRET);
+        req.user = decoded; // Set user from token
       } catch (err) {
         return res.status(401).json({ error: 'Token ungültig' });
       }
@@ -182,7 +184,7 @@ router.post('/', async (req, res, next) => {
       if (!data.id) data.id = crypto.randomUUID();
       data.created_date = new Date();
       data.updated_date = new Date();
-      data.created_by = req.user.email;
+      data.created_by = req.user?.email || 'system';
       
       const validColumns = await getValidColumns(entity);
       let keys = Object.keys(data);
@@ -244,7 +246,7 @@ router.post('/', async (req, res, next) => {
         if (!item.id) item.id = crypto.randomUUID();
         item.created_date = new Date();
         item.updated_date = new Date();
-        item.created_by = req.user.email;
+        item.created_by = req.user?.email || 'system';
         return item;
       });
       
@@ -262,10 +264,15 @@ router.post('/', async (req, res, next) => {
         return res.status(400).json({ error: "No valid columns found for insert" });
       }
       
-      const values = processed.map(item => keys.map(k => toSqlValue(item[k])));
-      const sql = `INSERT INTO \`${entity}\` (\`${keys.join('`,`')}\`) VALUES ?`;
+      // Insert each item individually to avoid MySQL2 bulk insert syntax issues
+      for (const item of processed) {
+        const values = keys.map(k => toSqlValue(item[k]));
+        const placeholders = keys.map(() => '?').join(',');
+        const sql = `INSERT INTO \`${entity}\` (\`${keys.join('`,`')}\`) VALUES (${placeholders})`;
+        const safeValues = values.map(v => v === undefined ? null : v);
+        await db.execute(sql, safeValues);
+      }
       
-      await db.query(sql, [values]);
       return res.json(processed);
     }
     
