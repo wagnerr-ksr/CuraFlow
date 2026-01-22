@@ -1617,6 +1617,19 @@ export default function ScheduleBoard() {
              const limitWarning = checkLimits(doctorId, dateStr, position);
              if (limitWarning) alert(limitWarning);
 
+             // WICHTIG: Duplikat-Prüfung VOR dem Löschen des bestehenden Shifts
+             const exists = currentWeekShifts.some(s => 
+                 s.date === dateStr && 
+                 s.position === position && 
+                 s.doctor_id === doctorId
+             );
+
+             if (exists) {
+                 console.log('DEBUG: Blocked - Shift already exists for this doctor/date/position');
+                 alert('Mitarbeiter ist in dieser Position bereits eingeteilt.');
+                 return;
+             }
+
              const occupyingShift = findOccupyingShift(dateStr, position);
              if (occupyingShift) {
                  deleteShiftWithCleanup(occupyingShift);
@@ -1627,20 +1640,8 @@ export default function ScheduleBoard() {
              }
         }
 
-        const exists = currentWeekShifts.some(s => 
-            s.date === dateStr && 
-            s.position === position && 
-            s.doctor_id === doctorId
-        );
-
-        if (exists) {
-            console.log('DEBUG: Blocked - Shift already exists for this doctor/date/position');
-            alert('Mitarbeiter ist in dieser Position bereits eingeteilt.');
-            return;
-        }
-
-        if (!exists) {
-            const existingInCell = currentWeekShifts.filter(s => s.date === dateStr && s.position === position);
+        // Shift erstellen (exists-Prüfung ist jetzt bereits weiter oben erfolgt)
+        const existingInCell = currentWeekShifts.filter(s => s.date === dateStr && s.position === position);
             const maxOrder = existingInCell.reduce((max, s) => Math.max(max, s.order || 0), -1);
             const newOrder = maxOrder + 1;
 
@@ -1694,9 +1695,6 @@ export default function ScheduleBoard() {
                     }
                 });
             }
-        } else {
-            console.log('DEBUG: Shift logic skipped (should not happen given checks)');
-        }
         return;
     }
 

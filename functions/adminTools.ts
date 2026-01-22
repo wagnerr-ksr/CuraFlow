@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import mysql from 'npm:mysql2@^3.9.0/promise';
 
 Deno.serve(async (req) => {

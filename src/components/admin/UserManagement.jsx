@@ -21,11 +21,17 @@ export default function UserManagement() {
     const { data: users = [], isLoading } = useQuery({
         queryKey: ['users'],
         queryFn: () => api.listUsers(),
+        staleTime: 5 * 60 * 1000, // 5 Minuten
+        cacheTime: 10 * 60 * 1000, // 10 Minuten
+        refetchOnWindowFocus: false,
     });
 
     const { data: doctors = [] } = useQuery({
         queryKey: ['doctors'],
         queryFn: () => db.Doctor.list(),
+        staleTime: 5 * 60 * 1000,
+        cacheTime: 10 * 60 * 1000,
+        refetchOnWindowFocus: false,
     });
 
     const updateUserMutation = useMutation({

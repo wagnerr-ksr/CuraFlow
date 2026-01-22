@@ -12,11 +12,17 @@ export default function AdminSettings() {
     const { data: settings = [] } = useQuery({
         queryKey: ['systemSettings'],
         queryFn: () => db.SystemSetting.list(),
+        staleTime: 10 * 60 * 1000, // 10 Minuten
+        cacheTime: 15 * 60 * 1000, // 15 Minuten
+        refetchOnWindowFocus: false,
     });
 
     const { data: workplaces = [] } = useQuery({
         queryKey: ['workplaces'],
         queryFn: () => db.Workplace.list(),
+        staleTime: 10 * 60 * 1000,
+        cacheTime: 15 * 60 * 1000,
+        refetchOnWindowFocus: false,
     });
 
     const updateSettingMutation = useMutation({

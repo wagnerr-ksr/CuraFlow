@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import ExcelJS from 'npm:exceljs@4.4.0';
 import { format, addDays } from 'npm:date-fns@2.30.0';
 import { Buffer } from 'node:buffer';

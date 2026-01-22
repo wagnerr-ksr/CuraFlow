@@ -9,6 +9,7 @@ import { ShieldCheck } from 'lucide-react';
 
 export default function AdminPage() {
     const { user, isAuthenticated } = useAuth();
+    const [activeTab, setActiveTab] = React.useState('users');
 
     if (!isAuthenticated) return <div>Bitte anmelden.</div>;
     if (user?.role !== 'admin') return <div className="p-8 text-center text-red-600">Zugriff verweigert. Nur für Administratoren.</div>;
@@ -25,7 +26,7 @@ export default function AdminPage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="users" className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="grid w-full grid-cols-4 lg:w-[800px]">
                     <TabsTrigger value="users">Benutzer & Rollen</TabsTrigger>
                     <TabsTrigger value="settings">Einstellungen</TabsTrigger>
@@ -34,19 +35,19 @@ export default function AdminPage() {
                 </TabsList>
 
                 <TabsContent value="users">
-                    <UserManagement />
+                    {activeTab === 'users' && <UserManagement />}
                 </TabsContent>
 
                 <TabsContent value="settings">
-                    <AdminSettings />
+                    {activeTab === 'settings' && <AdminSettings />}
                 </TabsContent>
 
                 <TabsContent value="database">
-                    <DatabaseManagement />
+                    {activeTab === 'database' && <DatabaseManagement />}
                 </TabsContent>
 
                 <TabsContent value="logs">
-                    <SystemLogs />
+                    {activeTab === 'logs' && <SystemLogs />}
                 </TabsContent>
             </Tabs>
         </div>

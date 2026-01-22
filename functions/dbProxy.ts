@@ -1,9 +1,37 @@
 // Redeployed: 2026-01-15
-import { createClientFromRequest } from 'npm:@base44/sdk@^0.8.3';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import mysql from 'npm:mysql2@^3.9.0/promise';
 
 // Cache for table columns to avoid "Unknown column" errors
 const COLUMNS_CACHE = {};
+
+// Connection Pool Cache (key: config hash, value: pool instance)
+const POOL_CACHE = new Map();
+
+// Helper to create a consistent config hash for pooling
+const getConfigHash = (config) => {
+    return `${config.host}:${config.port}:${config.user}:${config.database}`;
+};
+
+// Helper to get or create connection pool
+const getPool = (config) => {
+    const hash = getConfigHash(config);
+    
+    if (!POOL_CACHE.has(hash)) {
+        const pool = mysql.createPool({
+            ...config,
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0,
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 0
+        });
+        POOL_CACHE.set(hash, pool);
+        console.log(`Created new connection pool for ${hash}`);
+    }
+    
+    return POOL_CACHE.get(hash);
+};
 
 Deno.serve(async (req) => {
     // 1. Auth Check (v2)
@@ -25,7 +53,7 @@ Deno.serve(async (req) => {
 
     if (!entity) return Response.json({ error: 'Entity required' }, { status: 400 });
 
-    let connection;
+    let pool;
     try {
         let config = {
             host: Deno.env.get('MYSQL_HOST')?.trim(),
@@ -49,7 +77,7 @@ Deno.serve(async (req) => {
             }
         }
 
-        connection = await mysql.createConnection(config);
+        pool = getPool(config);
         
         // HELPER: Convert JS value to MySQL value
         const toSqlValue = (val) => {
@@ -91,7 +119,7 @@ Deno.serve(async (req) => {
             if (COLUMNS_CACHE[tableName]) return COLUMNS_CACHE[tableName];
             
             try {
-                const [rows] = await connection.execute(`SHOW COLUMNS FROM \`${tableName}\``);
+                const [rows] = await pool.execute(`SHOW COLUMNS FROM \`${tableName}\``);
                 const columns = rows.map(r => r.Field);
                 COLUMNS_CACHE[tableName] = columns;
                 return columns;
@@ -164,7 +192,7 @@ Deno.serve(async (req) => {
 
             try {
                 const safeParams = params.map(p => p === undefined ? null : p);
-                const [rows] = await connection.execute(sql, safeParams);
+                const [rows] = await pool.execute(sql, safeParams);
                 return Response.json(rows.map(fromSqlRow));
             } catch (err) {
                 console.error("List Execute Error:", err.message, "SQL:", sql);
@@ -180,7 +208,7 @@ Deno.serve(async (req) => {
         if (action === 'get') {
             if (!id) return Response.json(null);
             try {
-                const [rows] = await connection.execute(`SELECT * FROM \`${entity}\` WHERE id = ?`, [id]);
+                const [rows] = await pool.execute(`SELECT * FROM \`${entity}\` WHERE id = ?`, [id]);
                 return Response.json(rows[0] ? fromSqlRow(rows[0]) : null);
             } catch (err) {
                 return Response.json({ error: err.message }, { status: 500 });
@@ -207,7 +235,7 @@ Deno.serve(async (req) => {
             
             try {
                 const safeValues = values.map(v => v === undefined ? null : v);
-                await connection.execute(sql, safeValues);
+                await pool.execute(sql, safeValues);
             } catch (err) {
                 console.error("Create Error:", err.message);
                 return Response.json({ error: err.message }, { status: 500 });
@@ -236,8 +264,8 @@ Deno.serve(async (req) => {
             const sql = `UPDATE \`${entity}\` SET ${sets} WHERE id = ?`;
             try {
                 const safeValues = values.map(v => v === undefined ? null : v);
-                await connection.execute(sql, safeValues);
-                const [rows] = await connection.execute(`SELECT * FROM \`${entity}\` WHERE id = ?`, [id]);
+                await pool.execute(sql, safeValues);
+                const [rows] = await pool.execute(`SELECT * FROM \`${entity}\` WHERE id = ?`, [id]);
                 return Response.json(rows[0] ? fromSqlRow(rows[0]) : null);
             } catch (err) {
                 console.error("Update Error:", err.message);
@@ -248,7 +276,7 @@ Deno.serve(async (req) => {
         if (action === 'delete') {
             if (!id) return Response.json({ error: "ID required for delete" }, { status: 400 });
             try {
-                await connection.execute(`DELETE FROM \`${entity}\` WHERE id = ?`, [id]);
+                await pool.execute(`DELETE FROM \`${entity}\` WHERE id = ?`, [id]);
             } catch (err) {
                 return Response.json({ error: err.message }, { status: 500 });
             }
@@ -290,7 +318,7 @@ Deno.serve(async (req) => {
              const sql = `INSERT INTO \`${entity}\` (\`${keys.join('`,`')}\`) VALUES ?`;
              
              try {
-                await connection.query(sql, [values]);
+                await pool.query(sql, [values]);
              } catch (err) {
                  console.error("BulkCreate Error:", err.message, "Entity:", entity);
                  // If error is duplicate entry, we might want to ignore or retry?
@@ -312,7 +340,5 @@ Deno.serve(async (req) => {
             stack: e.stack,
             context: { action, entity }
         }, { status: 500 });
-    } finally {
-        if (connection) await connection.end();
     }
 });
