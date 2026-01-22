@@ -9,7 +9,7 @@ export default function FreeTextCell({ date, rowName, notes, onCreate, onUpdate,
     
     useEffect(() => {
         setValue(note?.content || "");
-    }, [note]);
+    }, [note, dateStr]); // dateStr hinzugefügt, um State bei Wochenwechsel zurückzusetzen
 
     const handleBlur = () => {
         const currentContent = note?.content || "";
