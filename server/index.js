@@ -22,6 +22,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy - Railway runs behind a reverse proxy
+app.set('trust proxy', 1);
+
 // MySQL Connection Pool
 export const db = createPool({
   host: process.env.MYSQL_HOST,
