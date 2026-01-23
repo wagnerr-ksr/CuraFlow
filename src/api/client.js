@@ -1,10 +1,13 @@
 /**
  * Einfacher API Client für Railway Backend
  * Kommuniziert direkt mit Express API über MySQL
+ * Unterstützt Multi-Tenant via DB-Token
  */
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const TOKEN_KEY = 'radioplan_jwt_token';
+const DB_TOKEN_KEY = 'db_credentials';
+const DB_TOKEN_ENABLED_KEY = 'db_token_enabled';
 
 class APIClient {
   constructor() {
@@ -23,11 +26,21 @@ class APIClient {
     }
   }
 
+  // Get active DB token (only if enabled)
+  getDbToken() {
+    const enabled = localStorage.getItem(DB_TOKEN_ENABLED_KEY) === 'true';
+    if (!enabled) return null;
+    return localStorage.getItem(DB_TOKEN_KEY);
+  }
+
   async request(endpoint, options = {}) {
     const token = this.getToken();
+    const dbToken = this.getDbToken();
+    
     const headers = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
+      ...(dbToken && { 'X-DB-Token': dbToken }),
       ...options.headers,
     };
 

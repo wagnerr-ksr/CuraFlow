@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy - Railway runs behind a reverse proxy
 app.set('trust proxy', 1);
 
-// MySQL Connection Pool
+// Default MySQL Connection Pool
 export const db = createPool({
   host: process.env.MYSQL_HOST,
   port: parseInt(process.env.MYSQL_PORT || '3306'),
@@ -38,6 +38,63 @@ export const db = createPool({
   dateStrings: true, // Important for DATE/DATETIME consistency
   timezone: '+00:00'
 });
+
+// Cache for tenant database pools (Multi-Tenant Support)
+const tenantPools = new Map();
+
+// Get or create a connection pool for a tenant
+export const getTenantDb = (dbToken) => {
+  if (!dbToken) return db; // Return default pool if no token
+  
+  // Check cache first
+  if (tenantPools.has(dbToken)) {
+    return tenantPools.get(dbToken);
+  }
+  
+  try {
+    // Decode token (base64 encoded JSON)
+    const configJson = Buffer.from(dbToken, 'base64').toString('utf-8');
+    const config = JSON.parse(configJson);
+    
+    // Validate required fields
+    if (!config.host || !config.user || !config.database) {
+      console.error('Invalid DB token: missing required fields');
+      return db;
+    }
+    
+    // Create new pool for this tenant
+    const tenantPool = createPool({
+      host: config.host,
+      port: parseInt(config.port || '3306'),
+      user: config.user,
+      password: config.password,
+      database: config.database,
+      ssl: config.ssl || undefined,
+      waitForConnections: true,
+      connectionLimit: 5, // Smaller limit for tenant pools
+      queueLimit: 0,
+      dateStrings: true,
+      timezone: '+00:00'
+    });
+    
+    // Cache it
+    tenantPools.set(dbToken, tenantPool);
+    console.log(`Created new tenant pool for: ${config.host}/${config.database}`);
+    
+    return tenantPool;
+  } catch (error) {
+    console.error('Failed to parse DB token:', error.message);
+    return db; // Fall back to default
+  }
+};
+
+// Middleware to attach tenant DB to request
+export const tenantDbMiddleware = (req, res, next) => {
+  const dbToken = req.headers['x-db-token'];
+  req.db = getTenantDb(dbToken);
+  req.isCustomDb = !!dbToken && req.db !== db;
+  next();
+};
 
 // CORS Configuration - MUST be before other middleware!
 const allowedOrigins = [
@@ -56,7 +113,7 @@ app.options('*', cors({
   origin: true, // Allow all origins for preflight
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-DB-Token']
 }));
 
 app.use(cors({
@@ -78,10 +135,11 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-DB-Token']
 }));
 
-// Security & Compression - AFTER CORS
+// Multi-Tenant DB Middleware - attach tenant DB to each request
+app.use(tenantDbMiddleware);// Security & Compression - AFTER CORS
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: { policy: "unsafe-none" }

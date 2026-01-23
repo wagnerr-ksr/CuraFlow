@@ -14,6 +14,7 @@ const PUBLIC_READ_TABLES = [
 ];
 
 // Cache for table columns to avoid "Unknown column" errors
+// Key format: "dbToken:tableName" to support multi-tenant
 const COLUMNS_CACHE = {};
 
 // HELPER: Convert JS value to MySQL value
@@ -56,14 +57,15 @@ const fromSqlRow = (row) => {
   return res;
 };
 
-// HELPER: Get valid columns for entity
-const getValidColumns = async (tableName) => {
-  if (COLUMNS_CACHE[tableName]) return COLUMNS_CACHE[tableName];
+// HELPER: Get valid columns for entity (multi-tenant aware)
+const getValidColumns = async (dbPool, tableName, cacheKey) => {
+  const fullCacheKey = `${cacheKey}:${tableName}`;
+  if (COLUMNS_CACHE[fullCacheKey]) return COLUMNS_CACHE[fullCacheKey];
   
   try {
-    const [rows] = await db.execute(`SHOW COLUMNS FROM \`${tableName}\``);
+    const [rows] = await dbPool.execute(`SHOW COLUMNS FROM \`${tableName}\``);
     const columns = rows.map(r => r.Field);
-    COLUMNS_CACHE[tableName] = columns;
+    COLUMNS_CACHE[fullCacheKey] = columns;
     return columns;
   } catch (e) {
     console.error(`Failed to fetch columns for ${tableName}:`, e.message);
@@ -79,6 +81,10 @@ router.post('/', async (req, res, next) => {
   try {
     const { action, entity, table, data, id, query, sort, limit, skip } = req.body;
     const tableName = entity || table;
+    
+    // Get the database pool (set by tenantDbMiddleware)
+    const dbPool = req.db || db;
+    const cacheKey = req.headers['x-db-token'] || 'default';
     
     if (!tableName) {
       return res.status(400).json({ error: 'Entity/table required' });
@@ -159,7 +165,7 @@ router.post('/', async (req, res, next) => {
       
       try {
         const safeParams = params.map(p => p === undefined ? null : p);
-        const [rows] = await db.execute(sql, safeParams);
+        const [rows] = await dbPool.execute(sql, safeParams);
         return res.json(rows.map(fromSqlRow));
       } catch (err) {
         console.error("List Execute Error:", err.message, "SQL:", sql);
@@ -175,7 +181,7 @@ router.post('/', async (req, res, next) => {
     if (action === 'get') {
       if (!id) return res.json(null);
       
-      const [rows] = await db.execute(`SELECT * FROM \`${tableName}\` WHERE id = ?`, [id]);
+      const [rows] = await dbPool.execute(`SELECT * FROM \`${tableName}\` WHERE id = ?`, [id]);
       return res.json(rows[0] ? fromSqlRow(rows[0]) : null);
     }
     
@@ -186,7 +192,7 @@ router.post('/', async (req, res, next) => {
       data.updated_date = new Date();
       data.created_by = req.user?.email || 'system';
       
-      const validColumns = await getValidColumns(tableName);
+      const validColumns = await getValidColumns(dbPool, tableName, cacheKey);
       let keys = Object.keys(data);
       
       if (validColumns) {
@@ -198,7 +204,7 @@ router.post('/', async (req, res, next) => {
       const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`,`')}\`) VALUES (${placeholders})`;
       
       const safeValues = values.map(v => v === undefined ? null : v);
-      await db.execute(sql, safeValues);
+      await dbPool.execute(sql, safeValues);
       
       return res.json(data);
     }
@@ -209,7 +215,7 @@ router.post('/', async (req, res, next) => {
       
       data.updated_date = new Date();
       
-      const validColumns = await getValidColumns(tableName);
+      const validColumns = await getValidColumns(dbPool, tableName, cacheKey);
       let keys = Object.keys(data).filter(k => k !== 'id');
       
       if (validColumns) {
@@ -224,9 +230,9 @@ router.post('/', async (req, res, next) => {
       
       const sql = `UPDATE \`${tableName}\` SET ${sets} WHERE id = ?`;
       const safeValues = values.map(v => v === undefined ? null : v);
-      await db.execute(sql, safeValues);
+      await dbPool.execute(sql, safeValues);
       
-      const [rows] = await db.execute(`SELECT * FROM \`${tableName}\` WHERE id = ?`, [id]);
+      const [rows] = await dbPool.execute(`SELECT * FROM \`${tableName}\` WHERE id = ?`, [id]);
       return res.json(rows[0] ? fromSqlRow(rows[0]) : null);
     }
     
@@ -234,7 +240,7 @@ router.post('/', async (req, res, next) => {
     if (action === 'delete') {
       if (!id) return res.status(400).json({ error: "ID required for delete" });
       
-      await db.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
+      await dbPool.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
       return res.json({ success: true });
     }
     
@@ -255,7 +261,7 @@ router.post('/', async (req, res, next) => {
       
       let keys = Array.from(allKeys);
       
-      const validColumns = await getValidColumns(tableName);
+      const validColumns = await getValidColumns(dbPool, tableName, cacheKey);
       if (validColumns) {
         keys = keys.filter(k => validColumns.includes(k));
       }
@@ -270,7 +276,7 @@ router.post('/', async (req, res, next) => {
         const placeholders = keys.map(() => '?').join(',');
         const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`,`')}\`) VALUES (${placeholders})`;
         const safeValues = values.map(v => v === undefined ? null : v);
-        await db.execute(sql, safeValues);
+        await dbPool.execute(sql, safeValues);
       }
       
       return res.json(processed);
