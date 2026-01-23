@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Database, Download, AlertTriangle, CheckCircle, Wrench, ShieldAlert, Key, Copy, Server, Trash2, Power, PowerOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { isDbTokenEnabled, enableDbToken, disableDbToken, deleteDbToken } from '@/components/dbTokenStorage';
+import { isDbTokenEnabled, enableDbToken, disableDbToken, deleteDbToken, saveDbToken } from '@/components/dbTokenStorage';
 
 export default function DatabaseManagement() {
     const { token } = useAuth();
@@ -72,20 +72,24 @@ export default function DatabaseManagement() {
 
     const generateTokenFromSecretsMutation = useMutation({
         mutationFn: () => invokeWithAuth('generate_db_token'),
-        onSuccess: (res) => {
-            setGeneratedToken(res.data.token);
-            setCurrentToken(res.data.token);
-            // Save token
-            localStorage.setItem('db_credentials', res.data.token);
+        onSuccess: async (res) => {
+            const token = res.data.token;
+            setGeneratedToken(token);
+            setCurrentToken(token);
+            // Save token to both storages
+            await saveDbToken(token);
+            // Auto-enable token
+            await enableDbToken();
+            setTokenEnabled(true);
             setShowManualTokenInput(false);
-            toast.success('Token generiert');
+            toast.success('Token generiert und aktiviert');
         },
         onError: (err) => {
             toast.error("Fehler: " + err.message);
         }
     });
 
-    const generateTokenManually = () => {
+    const generateTokenManually = async () => {
         try {
             const config = { ...manualCreds };
             if (config.ssl) {
@@ -97,9 +101,12 @@ export default function DatabaseManagement() {
             const token = btoa(json);
             setGeneratedToken(token);
             setCurrentToken(token);
-            // Save token
-            localStorage.setItem('db_credentials', token);
-            toast.success('Token manuell erstellt');
+            // Save token to both storages
+            await saveDbToken(token);
+            // Auto-enable token
+            await enableDbToken();
+            setTokenEnabled(true);
+            toast.success('Token manuell erstellt und aktiviert');
         } catch (e) {
             toast.error("Fehler beim Erstellen des Tokens");
         }
