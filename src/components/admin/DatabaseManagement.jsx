@@ -170,7 +170,9 @@ export default function DatabaseManagement() {
     // Helper to call backend with JWT token
     const invokeWithAuth = async (action, data = {}) => {
         try {
-            const url = `${window.location.origin}/api/admin/tools`;
+            // Use the API URL from environment, not window.location.origin
+            const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+            const url = `${apiBaseUrl}/api/admin/tools`;
             console.log('Calling admin tools:', { url, action, hasToken: !!token });
             
             const response = await fetch(url, {
