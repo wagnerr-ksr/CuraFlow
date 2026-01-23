@@ -1,5 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { db } from '../index.js';
 import { authMiddleware, adminMiddleware } from './auth.js';
 
@@ -10,20 +11,28 @@ router.get('/test', (req, res) => {
   res.json({ message: 'Admin routes working', timestamp: new Date().toISOString() });
 });
 
-// ===== ADMIN TOOLS (replaces Base44 functions) =====
-// Handle OPTIONS preflight
-router.options('/tools', (req, res) => {
-  res.sendStatus(200);
-});
-
-// Tools endpoint with explicit middleware
-router.post('/tools', authMiddleware, adminMiddleware, async (req, res, next) => {
+// ===== ADMIN TOOLS - Simplified with inline auth check =====
+router.post('/tools', async (req, res, next) => {
   try {
-    console.log('Admin tools request received:', {
-      action: req.body.action,
-      user: req.user?.email,
-      hasData: !!req.body.data
-    });
+    // Quick inline auth check
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Nicht autorisiert' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    let user;
+    try {
+      user = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'Token ungültig' });
+    }
+    
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin-Berechtigung erforderlich' });
+    }
+    
+    console.log('Admin tools request:', { action: req.body.action, user: user.email });
     
     const { action, data } = req.body;
 
