@@ -4,6 +4,12 @@ import { db } from '../index.js';
 import { authMiddleware, adminMiddleware } from './auth.js';
 
 const router = express.Router();
+
+// Test endpoint without middleware
+router.get('/test', (req, res) => {
+  res.json({ message: 'Admin routes working', timestamp: new Date().toISOString() });
+});
+
 router.use(authMiddleware);
 router.use(adminMiddleware);
 
@@ -184,6 +190,11 @@ router.post('/migrate-users', async (req, res, next) => {
 });
 
 // ===== ADMIN TOOLS (replaces Base44 functions) =====
+// Handle OPTIONS preflight
+router.options('/tools', (req, res) => {
+  res.sendStatus(200);
+});
+
 router.post('/tools', async (req, res, next) => {
   try {
     console.log('Admin tools request received:', {
