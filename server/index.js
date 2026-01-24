@@ -152,9 +152,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting - General API
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 300, // limit each IP to 300 requests per minute
+  message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -162,8 +162,8 @@ const generalLimiter = rateLimit({
 // Stricter rate limiting for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // limit each IP to 20 login attempts per windowMs
-  message: 'Too many login attempts from this IP, please try again after 15 minutes.',
+  max: 30, // limit each IP to 30 login attempts per windowMs
+  message: { error: 'Too many login attempts from this IP, please try again after 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful requests
@@ -177,7 +177,7 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    version: '1.0.2' // Updated to trigger deployment
+    version: '1.0.3' // Increased rate limits
   });
 });
 
