@@ -70,12 +70,12 @@ export default function StaffingPlanTable({ doctors, isReadOnly }) {
     // --- Data Fetching ---
     const { data: entries = [], isLoading: isLoadingEntries } = useQuery({
         queryKey: ["staffingPlanEntries", year],
-        queryFn: () => base44.entities.StaffingPlanEntry.filter({ year }),
+        queryFn: () => db.StaffingPlanEntry.filter({ year }),
     });
 
     const { data: systemSettings = [] } = useQuery({
         queryKey: ["systemSettings"],
-        queryFn: () => base44.entities.SystemSetting.list(),
+        queryFn: () => db.SystemSetting.list(),
     });
 
     const rawTarget = systemSettings.find(s => s.key === `staffing_target_${year}`)?.value || "0";
@@ -110,9 +110,9 @@ export default function StaffingPlanTable({ doctors, isReadOnly }) {
             const key = `staffing_target_${year}`;
             const existing = systemSettings.find(s => s.key === key);
             if (existing) {
-                return base44.entities.SystemSetting.update(existing.id, { value: String(value) });
+                return db.SystemSetting.update(existing.id, { value: String(value) });
             } else {
-                return base44.entities.SystemSetting.create({ key, value: String(value) });
+                return db.SystemSetting.create({ key, value: String(value) });
             }
         },
         onSuccess: () => queryClient.invalidateQueries(["systemSettings"]),
