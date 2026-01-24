@@ -390,6 +390,29 @@ export default function WorkplaceConfigDialog({ defaultTab = "Rotationen" }) {
                                                                                     onCheckedChange={(checked) => setEditForm({...editForm, allows_consecutive_days: checked})}
                                                                                 />
                                                                                 </div>
+                                                                                <div className="space-y-2">
+                                                                                    <Label>Aktive Tage</Label>
+                                                                                    <div className="text-xs text-slate-500 mb-1">
+                                                                                        An welchen Wochentagen kann dieser Dienst besetzt werden?
+                                                                                    </div>
+                                                                                    <div className="flex gap-1">
+                                                                                        {['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'].map((day, i) => (
+                                                                                            <button
+                                                                                                key={i}
+                                                                                                type="button"
+                                                                                                onClick={() => toggleDay(i)}
+                                                                                                className={cn(
+                                                                                                    "w-8 h-8 rounded-full text-xs font-medium transition-colors",
+                                                                                                    (editForm.active_days || []).includes(i)
+                                                                                                        ? "bg-indigo-600 text-white"
+                                                                                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                                                                                )}
+                                                                                            >
+                                                                                                {day[0]}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </div>
                                                                                 </>
                                                                                 )}
 
