@@ -177,7 +177,7 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    version: '1.0.3' // Increased rate limits
+    version: '1.0.4' // Better error logging
   });
 });
 
