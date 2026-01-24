@@ -296,4 +296,76 @@ router.post('/migrate-users', async (req, res, next) => {
   }
 });
 
+// ===== RENAME POSITION =====
+// Renames a position/workplace across all related tables
+router.post('/rename-position', async (req, res, next) => {
+  try {
+    const { oldName, newName } = req.body;
+    
+    if (!oldName || !newName) {
+      return res.status(400).json({ error: 'oldName und newName sind erforderlich' });
+    }
+    
+    if (oldName === newName) {
+      return res.json({ success: true, message: 'Keine Änderung nötig', stats: {} });
+    }
+    
+    // Use tenant DB if available (req.db is set by tenantDbMiddleware)
+    const dbPool = req.db;
+    
+    let shiftsUpdated = 0;
+    let notesUpdated = 0;
+    let rotationsUpdated = 0;
+    
+    // Update ShiftEntry
+    try {
+      const [r1] = await dbPool.execute(
+        'UPDATE ShiftEntry SET position = ? WHERE position = ?',
+        [newName, oldName]
+      );
+      shiftsUpdated = r1.affectedRows || 0;
+    } catch (e) {
+      if (e.code !== 'ER_NO_SUCH_TABLE') throw e;
+    }
+    
+    // Update ScheduleNote
+    try {
+      const [r2] = await dbPool.execute(
+        'UPDATE ScheduleNote SET position = ? WHERE position = ?',
+        [newName, oldName]
+      );
+      notesUpdated = r2.affectedRows || 0;
+    } catch (e) {
+      if (e.code !== 'ER_NO_SUCH_TABLE') throw e;
+    }
+    
+    // Update TrainingRotation (modality field)
+    try {
+      const [r3] = await dbPool.execute(
+        'UPDATE TrainingRotation SET modality = ? WHERE modality = ?',
+        [newName, oldName]
+      );
+      rotationsUpdated = r3.affectedRows || 0;
+    } catch (e) {
+      if (e.code !== 'ER_NO_SUCH_TABLE') throw e;
+    }
+    
+    const stats = {
+      updatedShifts: shiftsUpdated,
+      updatedNotes: notesUpdated,
+      updatedRotations: rotationsUpdated
+    };
+    
+    console.log(`Renamed position "${oldName}" to "${newName}":`, stats);
+    
+    res.json({
+      success: true,
+      message: `Position "${oldName}" wurde zu "${newName}" umbenannt`,
+      ...stats
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

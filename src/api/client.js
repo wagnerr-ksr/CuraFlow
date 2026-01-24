@@ -290,6 +290,13 @@ class APIClient {
   async getLogs(limit = 100) {
     return this.request(`/api/admin/logs?limit=${limit}`);
   }
+
+  async renamePosition(oldName, newName) {
+    return this.request('/api/admin/rename-position', {
+      method: 'POST',
+      body: JSON.stringify({ oldName, newName }),
+    });
+  }
 }
 
 // Singleton Instance
@@ -410,9 +417,12 @@ export const base44 = {
           const { action, table, ...rest } = params;
           return { data: await api.dbAction(action, table, rest) };
         
+        case 'renamePosition':
+          // Position umbenennen - jetzt migriert!
+          return { data: await api.renamePosition(params.oldName, params.newName) };
+        
         case 'atomicOperations':
         case 'adminTools':
-        case 'renamePosition':
           // Diese Funktionen haben keine direkte API-Entsprechung
           // Sie müssen manuell migriert werden
           console.error(`Function '${functionName}' not yet migrated to Railway API`);
