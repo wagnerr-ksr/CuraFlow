@@ -323,6 +323,13 @@ export default function ScheduleBoard() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: systemSettings = [] } = useQuery({
+    queryKey: ['systemSettings'],
+    queryFn: () => db.SystemSetting.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   const sections = useMemo(() => {
       // Get custom categories from settings
       const customCategoriesSetting = systemSettings.find(s => s.key === 'workplace_categories');
@@ -465,13 +472,6 @@ export default function ScheduleBoard() {
     queryKey: ['scheduleNotes'],
     queryFn: () => db.ScheduleNote.list(),
     staleTime: 30 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: systemSettings = [] } = useQuery({
-    queryKey: ['systemSettings'],
-    queryFn: () => db.SystemSetting.list(),
-    staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
