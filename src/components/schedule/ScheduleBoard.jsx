@@ -324,6 +324,15 @@ export default function ScheduleBoard() {
   });
 
   const sections = useMemo(() => {
+      // Get custom categories from settings
+      const customCategoriesSetting = systemSettings.find(s => s.key === 'workplace_categories');
+      let customCategories = [];
+      if (customCategoriesSetting?.value) {
+          try {
+              customCategories = JSON.parse(customCategoriesSetting.value);
+          } catch { }
+      }
+
       const dynamicRows = {
           "Dienste": workplaces
               .filter(w => w.category === "Dienste")
@@ -339,6 +348,14 @@ export default function ScheduleBoard() {
               .map(w => w.name)
       };
 
+      // Add custom categories to dynamicRows
+      for (const cat of customCategories) {
+          dynamicRows[cat] = workplaces
+              .filter(w => w.category === cat)
+              .sort((a, b) => (a.order || 0) - (b.order || 0))
+              .map(w => w.name);
+      }
+
       // No hardcoded fallbacks - all positions come from database
 
       // Find Orphaned Positions (Positions in shifts that are not in any configured category)
@@ -348,6 +365,7 @@ export default function ScheduleBoard() {
           ...dynamicRows["Dienste"],
           ...dynamicRows["Rotationen"],
           ...dynamicRows["Demonstrationen & Konsile"],
+          ...customCategories.flatMap(cat => dynamicRows[cat] || []),
           ...STATIC_SECTIONS["Sonstiges"].rows
       ]);
 
@@ -381,6 +399,13 @@ export default function ScheduleBoard() {
               ...SECTION_CONFIG["Demonstrationen & Konsile"], 
               rows: dynamicRows["Demonstrationen & Konsile"] 
           },
+          // Add custom categories dynamically
+          ...customCategories.map(cat => ({
+              title: cat,
+              headerColor: "bg-indigo-100 text-indigo-900",
+              rowColor: "bg-indigo-50/30",
+              rows: dynamicRows[cat] || []
+          })),
           { title: "Sonstiges", ...STATIC_SECTIONS["Sonstiges"] }
       ];
       
@@ -389,6 +414,19 @@ export default function ScheduleBoard() {
       const result = orderedTitles
           .map(title => defaultSections.find(s => s.title === title))
           .filter(Boolean);
+      
+      // Add any sections that are new and not yet in the order
+      for (const section of defaultSections) {
+          if (!result.find(r => r.title === section.title)) {
+              // Insert before "Sonstiges" if possible, otherwise at end
+              const sonstigesIdx = result.findIndex(r => r.title === "Sonstiges");
+              if (sonstigesIdx >= 0) {
+                  result.splice(sonstigesIdx, 0, section);
+              } else {
+                  result.push(section);
+              }
+          }
+      }
 
       if (orphanedPositions.length > 0) {
           result.push({
@@ -400,7 +438,7 @@ export default function ScheduleBoard() {
       }
 
       return result;
-  }, [workplaces, allShifts, previewShifts, getSectionOrder]);
+  }, [workplaces, allShifts, previewShifts, getSectionOrder, systemSettings]);
 
   const { data: trainingRotations = [] } = useQuery({
     queryKey: ['trainingRotations'],
