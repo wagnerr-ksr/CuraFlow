@@ -20,6 +20,7 @@ const COLUMNS_CACHE = {};
 // HELPER: Convert JS value to MySQL value
 const toSqlValue = (val) => {
   if (val === undefined) return null;
+  if (val === '') return null; // Empty strings become NULL (important for date fields)
   if (typeof val === 'number' && isNaN(val)) return null;
   if (typeof val === 'object' && val !== null && !(val instanceof Date)) {
     return JSON.stringify(val);
