@@ -80,14 +80,30 @@ export default function TokenManager() {
             }
             const token = btoa(JSON.stringify(config));
             
-            await saveNamedToken(newTokenName.trim(), token);
+            console.log('[TokenManager] Saving token:', { 
+                name: newTokenName.trim(), 
+                config: { host: config.host, database: config.database, user: config.user },
+                tokenPreview: token.substring(0, 30) + '...'
+            });
+            
+            const savedEntry = await saveNamedToken(newTokenName.trim(), token);
+            
+            // Auto-activate the new token
+            console.log('[TokenManager] Activating token:', savedEntry.id);
+            await switchToToken(savedEntry.id);
             
             setSavedTokens(getSavedTokens());
+            setActiveTokenId(savedEntry.id);
+            setTokenEnabled(true);
             setShowAddDialog(false);
             setNewTokenName('');
             setNewTokenCreds({ host: '', user: '', password: '', database: '', port: '3306', ssl: false });
-            toast.success(`Token "${newTokenName}" gespeichert`);
+            toast.success(`Token "${newTokenName}" gespeichert und aktiviert`);
+            
+            // Reload to apply changes
+            setTimeout(() => window.location.reload(), 1000);
         } catch (e) {
+            console.error('[TokenManager] Error:', e);
             toast.error('Fehler beim Speichern: ' + e.message);
         }
     };

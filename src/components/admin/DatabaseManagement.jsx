@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Database, Download, AlertTriangle, CheckCircle, Wrench, ShieldAlert, Key, Copy, Server, Trash2, Power, PowerOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { isDbTokenEnabled, enableDbToken, disableDbToken, deleteDbToken, saveDbToken } from '@/components/dbTokenStorage';
+import { isDbTokenEnabled, enableDbToken, disableDbToken, deleteDbToken, saveDbToken, saveNamedToken, switchToToken, getSavedTokens, getActiveTokenId } from '@/components/dbTokenStorage';
 import TokenManager from './TokenManager';
 
 export default function DatabaseManagement() {
@@ -75,15 +75,19 @@ export default function DatabaseManagement() {
         mutationFn: () => invokeWithAuth('generate_db_token'),
         onSuccess: async (res) => {
             const token = res.data.token;
+            console.log('[TokenGen] Token from secrets:', token.substring(0, 30) + '...');
             setGeneratedToken(token);
             setCurrentToken(token);
             // Save token to both storages
             await saveDbToken(token);
-            // Auto-enable token
-            await enableDbToken();
+            // Also save to named tokens for Token Manager
+            const savedEntry = await saveNamedToken('Von Secrets generiert', token);
+            await switchToToken(savedEntry.id);
             setTokenEnabled(true);
             setShowManualTokenInput(false);
             toast.success('Token generiert und aktiviert');
+            // Reload to apply
+            setTimeout(() => window.location.reload(), 1000);
         },
         onError: (err) => {
             toast.error("Fehler: " + err.message);
@@ -100,15 +104,22 @@ export default function DatabaseManagement() {
             }
             const json = JSON.stringify(config);
             const token = btoa(json);
+            console.log('[TokenGen] Manual token:', token.substring(0, 30) + '...');
+            console.log('[TokenGen] Config:', { host: config.host, database: config.database, user: config.user });
             setGeneratedToken(token);
             setCurrentToken(token);
             // Save token to both storages
             await saveDbToken(token);
-            // Auto-enable token
-            await enableDbToken();
+            // Also save to named tokens for Token Manager
+            const name = `${config.database}@${config.host}`;
+            const savedEntry = await saveNamedToken(name, token);
+            await switchToToken(savedEntry.id);
             setTokenEnabled(true);
             toast.success('Token manuell erstellt und aktiviert');
+            // Reload to apply
+            setTimeout(() => window.location.reload(), 1000);
         } catch (e) {
+            console.error('[TokenGen] Error:', e);
             toast.error("Fehler beim Erstellen des Tokens");
         }
     };
