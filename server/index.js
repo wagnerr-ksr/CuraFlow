@@ -177,7 +177,7 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    version: '1.0.1' // Updated to trigger deployment
+    version: '1.0.2' // Updated to trigger deployment
   });
 });
 
