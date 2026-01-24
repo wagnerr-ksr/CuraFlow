@@ -98,13 +98,36 @@ router.post('/tools', async (req, res, next) => {
         for (const table of tables) {
           const tableName = Object.values(table)[0];
           // Skip user table to keep admin access
-          if (tableName === 'User') continue;
+          if (tableName === 'User' || tableName === 'app_users') continue;
           await db.execute(`DELETE FROM \`${tableName}\``);
         }
 
         return res.json({ 
           message: 'Database wiped successfully',
           warning: 'User table preserved'
+        });
+      }
+
+      case 'register_change': {
+        // Register a database change count (for auto-backup trigger)
+        // This is a no-op in Railway - backups are handled differently
+        const { count } = data || {};
+        console.log(`Change registered: ${count || 1} changes`);
+        return res.json({ 
+          success: true, 
+          message: 'Change registered',
+          count: count || 1
+        });
+      }
+
+      case 'perform_auto_backup': {
+        // Auto-backup is not needed in Railway - MySQL handles this
+        // Just log and return success
+        console.log('Auto-backup requested - not needed in Railway (MySQL handles backups)');
+        return res.json({ 
+          success: true, 
+          message: 'Backup not needed - Railway MySQL has automatic backups',
+          skipped: true
         });
       }
 

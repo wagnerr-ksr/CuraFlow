@@ -15,6 +15,7 @@ import staffRouter from './routes/staff.js';
 import calendarRouter from './routes/calendar.js';
 import voiceRouter from './routes/voice.js';
 import adminRouter from './routes/admin.js';
+import atomicRouter from './routes/atomic.js';
 
 // Load environment variables
 dotenv.config();
@@ -190,6 +191,7 @@ app.use('/api/staff', staffRouter);
 app.use('/api/calendar', calendarRouter);
 app.use('/api/voice', voiceRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/atomic', atomicRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

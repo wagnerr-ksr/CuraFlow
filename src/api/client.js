@@ -297,6 +297,34 @@ class APIClient {
       body: JSON.stringify({ oldName, newName }),
     });
   }
+
+  async adminTools(action, data = {}) {
+    return this.request('/api/admin/tools', {
+      method: 'POST',
+      body: JSON.stringify({ action, data }),
+    });
+  }
+
+  // ==================== Atomic Operations ====================
+
+  async atomicOperation(operation, entity, params = {}) {
+    return this.request('/api/atomic', {
+      method: 'POST',
+      body: JSON.stringify({ operation, entity, ...params }),
+    });
+  }
+
+  async checkAndUpdate(entity, id, data, check) {
+    return this.atomicOperation('checkAndUpdate', entity, { id, data, check });
+  }
+
+  async checkAndCreate(entity, data, check) {
+    return this.atomicOperation('checkAndCreate', entity, { data, check });
+  }
+
+  async upsertStaffing(data) {
+    return this.atomicOperation('upsertStaffing', 'StaffingPlanEntry', { data });
+  }
 }
 
 // Singleton Instance
@@ -422,11 +450,12 @@ export const base44 = {
           return { data: await api.renamePosition(params.oldName, params.newName) };
         
         case 'atomicOperations':
+          // Atomic Operations - jetzt migriert!
+          return { data: await api.atomicOperation(params.operation, params.entity, params) };
+        
         case 'adminTools':
-          // Diese Funktionen haben keine direkte API-Entsprechung
-          // Sie müssen manuell migriert werden
-          console.error(`Function '${functionName}' not yet migrated to Railway API`);
-          throw new Error(`Function '${functionName}' requires manual migration`);
+          // Admin Tools - jetzt migriert!
+          return { data: await api.adminTools(params.action, params) };
         
         default:
           console.error(`Unknown function: ${functionName}`);
