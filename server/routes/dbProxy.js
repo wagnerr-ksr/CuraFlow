@@ -76,6 +76,14 @@ const getValidColumns = async (dbPool, tableName, cacheKey) => {
   }
 };
 
+// Handle GET requests with helpful error
+router.get('/', (req, res) => {
+  res.status(405).json({ 
+    error: 'Method not allowed. Use POST with { action, entity, ... }',
+    hint: 'GET requests are not supported on /api/db'
+  });
+});
+
 // ============ UNIFIED DB PROXY ENDPOINT ============
 router.post('/', async (req, res, next) => {
   try {
