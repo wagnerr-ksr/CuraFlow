@@ -391,6 +391,9 @@ export const db = {
 // Base44-Kompatibilitätsschicht für base44.functions.invoke()
 // Wird schrittweise durch direkte API-Aufrufe ersetzt
 export const base44 = {
+  // Entities-Kompatibilitätsschicht - mappt auf db
+  entities: db,
+  
   functions: {
     invoke: async (functionName, params) => {
       console.warn(`[Deprecated] base44.functions.invoke('${functionName}') - migrate to direct API calls`);
