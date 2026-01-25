@@ -244,7 +244,7 @@ export default function HelpPage() {
                                     <div>
                                         <h4 className="font-semibold">Mitarbeiter sortieren</h4>
                                         <p className="text-sm text-slate-600 mt-1">
-                                            Auf der Seite "Ärzteteam" können Sie die Reihenfolge der Ärzte per Drag & Drop verändern.
+                                            Auf der Seite "Team" können Sie die Reihenfolge der Mitarbeiter per Drag & Drop verändern.
                                             Die hier festgelegte Reihenfolge wird automatisch im Wochenplan (Seitenleiste) und in den Auswahllisten übernommen.
                                         </p>
                                     </div>

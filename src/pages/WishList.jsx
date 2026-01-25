@@ -13,6 +13,7 @@ import { useHolidays } from '@/components/useHolidays';
 import { trackDbChange } from '@/components/utils/dbTracker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as CalendarIcon, Table2 } from 'lucide-react';
+import { useTeamRoles } from '@/components/settings/TeamRoleSettings';
 
 export default function WishListPage() {
   const { isReadOnly, isAuthenticated, user } = useAuth();
@@ -62,12 +63,14 @@ export default function WishListPage() {
       }
   }, [serviceTypes, activeTab]);
 
+  // Dynamische Rollenprioritäten aus DB laden
+  const { rolePriority } = useTeamRoles();
+
   // Fetch Doctors
   const { data: doctors = [] } = useQuery({
     queryKey: ['doctors'],
     queryFn: () => db.Doctor.list(),
     select: (data) => data.sort((a, b) => {
-      const rolePriority = { "Chefarzt": 0, "Oberarzt": 1, "Facharzt": 2, "Assistenzarzt": 3 };
       const roleDiff = (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99);
       if (roleDiff !== 0) return roleDiff;
       return (a.order || 0) - (b.order || 0);

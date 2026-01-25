@@ -33,6 +33,7 @@ import { useHolidays } from '@/components/useHolidays';
 import SectionConfigDialog, { useSectionConfig } from '@/components/settings/SectionConfigDialog';
 import MobileScheduleView from './MobileScheduleView';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useTeamRoles } from '@/components/settings/TeamRoleSettings';
 // import VoiceControl from './VoiceControl';
 
 const STATIC_SECTIONS = {
@@ -265,6 +266,9 @@ export default function ScheduleBoard() {
 
   const queryClient = useQueryClient();
 
+  // Dynamische Rollenprioritäten aus DB laden
+  const { rolePriority } = useTeamRoles();
+
   // Fetch data with optimized caching
   const { data: doctors = [] } = useQuery({
     queryKey: ['doctors'],
@@ -272,7 +276,6 @@ export default function ScheduleBoard() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
     select: (data) => [...data].sort((a, b) => {
-      const rolePriority = { "Chefarzt": 0, "Oberarzt": 1, "Facharzt": 2, "Assistenzarzt": 3, "Nicht-Radiologe": 4 };
       const roleDiff = (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99);
       if (roleDiff !== 0) return roleDiff;
       return (a.order || 0) - (b.order || 0);

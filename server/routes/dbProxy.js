@@ -10,7 +10,8 @@ const PUBLIC_READ_TABLES = [
   'SystemSetting',
   'ColorSetting',
   'Workplace',
-  'DemoSetting'
+  'DemoSetting',
+  'TeamRole'
 ];
 
 // Cache for table columns to avoid "Unknown column" errors

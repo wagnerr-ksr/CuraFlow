@@ -393,6 +393,7 @@ export const db = {
   SystemLog: new EntityClient('SystemLog'),
   VoiceAlias: new EntityClient('VoiceAlias'),
   User: new EntityClient('User'),
+  TeamRole: new EntityClient('TeamRole'),
   
   collection: (name) => new EntityClient(name)
 };

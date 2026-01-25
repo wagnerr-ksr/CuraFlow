@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, GraduationCap, Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DoctorYearView from '@/components/vacation/DoctorYearView';
+import { useTeamRoles } from '@/components/settings/TeamRoleSettings';
 
 export default function TrainingPage() {
   const { isReadOnly, user } = useAuth();
@@ -17,12 +18,14 @@ export default function TrainingPage() {
   
   const queryClient = useQueryClient();
 
+  // Dynamische Rollenprioritäten aus DB laden
+  const { rolePriority } = useTeamRoles();
+
   // Fetch Doctors (only Assistenzärzte typically, but let's allow all for now or filter)
   const { data: doctors = [] } = useQuery({
     queryKey: ['doctors'],
     queryFn: () => db.Doctor.list(),
     select: (data) => data.sort((a, b) => {
-        const rolePriority = { "Chefarzt": 0, "Oberarzt": 1, "Facharzt": 2, "Assistenzarzt": 3 };
         const roleDiff = (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99);
         if (roleDiff !== 0) return roleDiff;
         return (a.order || 0) - (b.order || 0);
