@@ -100,9 +100,14 @@ export const saveDbToken = async (token) => {
 // Extract token from URL and save
 export const extractAndSaveDbTokenFromUrl = async () => {
     const params = new URLSearchParams(window.location.search);
-    const dbToken = params.get('db_token');
+    let dbToken = params.get('db_token');
     
     if (dbToken) {
+        // URLSearchParams converts + to space, so we need to handle this
+        // The original token may contain + and / characters that need to be preserved
+        // First, restore + signs that were converted to spaces
+        dbToken = dbToken.replace(/ /g, '+');
+        
         await saveDbToken(dbToken);
         // Clean URL
         const newUrl = window.location.pathname + window.location.hash;
