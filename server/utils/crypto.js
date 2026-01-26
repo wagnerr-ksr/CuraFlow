@@ -32,6 +32,7 @@ const getEncryptionKey = () => {
  */
 export const encryptToken = (plaintext) => {
   const key = getEncryptionKey();
+  console.log('[encryptToken] JWT_SECRET hash prefix:', key.toString('hex').substring(0, 16));
   const iv = crypto.randomBytes(IV_LENGTH);
   
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
