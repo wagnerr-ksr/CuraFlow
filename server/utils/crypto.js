@@ -102,6 +102,11 @@ export const isLegacyToken = (token) => {
  */
 export const parseDbToken = (token) => {
   try {
+    console.log('[parseDbToken] Received token length:', token?.length);
+    console.log('[parseDbToken] Token first 50 chars:', token?.substring(0, 50));
+    console.log('[parseDbToken] Token contains spaces:', token?.includes(' '));
+    console.log('[parseDbToken] Token contains +:', token?.includes('+'));
+    
     // First, check if it's a legacy unencrypted token
     if (isLegacyToken(token)) {
       console.warn('Warning: Legacy unencrypted DB token detected. Please regenerate token for security.');
@@ -110,10 +115,13 @@ export const parseDbToken = (token) => {
     }
     
     // Try to decrypt as new encrypted format
+    console.log('[parseDbToken] Attempting decryption...');
     const decrypted = decryptToken(token);
+    console.log('[parseDbToken] Decryption successful');
     return JSON.parse(decrypted);
   } catch (error) {
     console.error('Failed to parse DB token:', error.message);
+    console.error('Token was:', token?.substring(0, 100));
     return null;
   }
 };
