@@ -109,6 +109,11 @@ export const extractAndSaveDbTokenFromUrl = async () => {
         dbToken = dbToken.replace(/ /g, '+');
         
         await saveDbToken(dbToken);
+        // Enable the token so it becomes active immediately
+        await enableDbToken();
+        // Clear the active_token_id since this is a new token from URL
+        localStorage.removeItem('active_token_id');
+        
         // Clean URL
         const newUrl = window.location.pathname + window.location.hash;
         window.history.replaceState({}, document.title, newUrl);
