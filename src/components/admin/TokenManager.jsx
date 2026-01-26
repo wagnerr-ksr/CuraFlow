@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Badge } from '@/components/ui/badge';
 import { 
     Key, Plus, Trash2, Edit2, Check, X, Database, Power, PowerOff, 
-    Building2, Copy, ChevronRight, RefreshCw, AlertTriangle 
+    Building2, Copy, ChevronRight, RefreshCw, AlertTriangle, Download 
 } from 'lucide-react';
 import { 
     getSavedTokens, 
@@ -34,6 +34,9 @@ export default function TokenManager() {
     
     // Add new token dialog
     const [showAddDialog, setShowAddDialog] = useState(false);
+    const [showImportDialog, setShowImportDialog] = useState(false);
+    const [importTokenName, setImportTokenName] = useState('');
+    const [importTokenValue, setImportTokenValue] = useState('');
     const [newTokenName, setNewTokenName] = useState('');
     const [newTokenCreds, setNewTokenCreds] = useState({ 
         host: '', 
@@ -188,6 +191,46 @@ export default function TokenManager() {
         toast.success('Token kopiert');
     };
     
+    const handleImportToken = async () => {
+        if (!importTokenName.trim()) {
+            toast.error('Bitte einen Namen eingeben');
+            return;
+        }
+        if (!importTokenValue.trim()) {
+            toast.error('Bitte den Token einfügen');
+            return;
+        }
+        
+        // Validate token format
+        try {
+            const decoded = JSON.parse(atob(importTokenValue.trim()));
+            if (!decoded.host || !decoded.database) {
+                toast.error('Ungültiges Token-Format: Host und Datenbank fehlen');
+                return;
+            }
+        } catch (e) {
+            toast.error('Ungültiges Token-Format: Konnte nicht dekodiert werden');
+            return;
+        }
+        
+        try {
+            const savedEntry = await saveNamedToken(importTokenName.trim(), importTokenValue.trim());
+            await switchToToken(savedEntry.id);
+            
+            setSavedTokens(getSavedTokens());
+            setActiveTokenId(savedEntry.id);
+            setTokenEnabled(true);
+            setShowImportDialog(false);
+            setImportTokenName('');
+            setImportTokenValue('');
+            toast.success(`Token "${importTokenName}" importiert und aktiviert`);
+            
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (e) {
+            toast.error('Fehler beim Importieren: ' + e.message);
+        }
+    };
+    
     return (
         <Card>
             <CardHeader>
@@ -215,6 +258,10 @@ export default function TokenManager() {
                         <Button onClick={() => setShowAddDialog(true)} size="sm">
                             <Plus className="w-4 h-4 mr-2" />
                             Neuer Mandant
+                        </Button>
+                        <Button onClick={() => setShowImportDialog(true)} size="sm" variant="outline">
+                            <Download className="w-4 h-4 mr-2" />
+                            Token importieren
                         </Button>
                     </div>
                 </div>
@@ -474,6 +521,55 @@ export default function TokenManager() {
                         <Button onClick={handleAddToken}>
                             <Plus className="w-4 h-4 mr-2" />
                             Speichern
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Import Token Dialog */}
+            <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Download className="w-5 h-5" />
+                            Token importieren
+                        </DialogTitle>
+                        <DialogDescription>
+                            Fügen Sie einen Token von einem anderen Arbeitsplatz ein
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Name des Mandanten *</Label>
+                            <Input
+                                placeholder="z.B. Radiologie, Chirurgie..."
+                                value={importTokenName}
+                                onChange={(e) => setImportTokenName(e.target.value)}
+                            />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label>Token *</Label>
+                            <textarea
+                                className="w-full h-32 p-3 text-sm font-mono border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Fügen Sie hier den kopierten Token ein..."
+                                value={importTokenValue}
+                                onChange={(e) => setImportTokenValue(e.target.value)}
+                            />
+                            <p className="text-xs text-slate-500">
+                                Kopieren Sie den Token am anderen Arbeitsplatz über das Kopier-Symbol und fügen Sie ihn hier ein.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+                            Abbrechen
+                        </Button>
+                        <Button onClick={handleImportToken}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Importieren
                         </Button>
                     </DialogFooter>
                 </DialogContent>
