@@ -15,6 +15,28 @@ import { Switch } from "@/components/ui/switch";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from "@/components/ui/use-toast";
 
+// Safe parseISO that handles undefined/null
+const safeParseISO = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+        const d = parseISO(dateStr);
+        return isValid(d) ? d : null;
+    } catch (e) {
+        return null;
+    }
+};
+
+// Safe date formatting
+const safeFormatDate = (dateStr, formatStr, options = {}) => {
+    const d = safeParseISO(dateStr);
+    if (!d) return '-';
+    try {
+        return format(d, formatStr, options);
+    } catch (e) {
+        return '-';
+    }
+};
+
 // Admin Tasks Component with "show more" functionality
 function AdminTasksSection({ allPendingWishes, isLoadingPending, doctors, handleQuickDecision, silentDeleteWishMutation, isUpdating }) {
     const [showAll, setShowAll] = useState(false);
@@ -72,7 +94,7 @@ function AdminTasksSection({ allPendingWishes, isLoadingPending, doctors, handle
                                             )}
 
                                             <div className="text-sm text-slate-600 mb-2">
-                                                <span className="font-medium">{isValid(parseISO(wish.date)) ? format(parseISO(wish.date), 'dd.MM.yyyy') : 'Datum ungültig'}</span>
+                                                <span className="font-medium">{safeFormatDate(wish.date, 'dd.MM.yyyy') || 'Datum ungültig'}</span>
                                                 <span className="mx-1">•</span>
                                                 <span className={wish.type === 'service' ? "text-green-600" : "text-red-600"}>
                                                     {wish.type === 'service' ? (wish.position ? `Dienst: ${wish.position}` : 'Dienstwunsch') : 'Kein Dienst'}
@@ -446,17 +468,21 @@ export default function MyDashboardPage() {
     // Process Data
     const today = startOfDay(new Date());
     
-    const upcomingServices = shifts.filter(s => 
-        ["Dienst Vordergrund", "Dienst Hintergrund", "Spätdienst"].includes(s.position) &&
-        isValid(parseISO(s.date)) &&
-        (isAfter(parseISO(s.date), today) || isSameDay(parseISO(s.date), today))
-    );
+    const upcomingServices = shifts.filter(s => {
+        if (!s || !s.position || !s.date) return false;
+        const d = safeParseISO(s.date);
+        if (!d) return false;
+        return ["Dienst Vordergrund", "Dienst Hintergrund", "Spätdienst"].includes(s.position) &&
+            (isAfter(d, today) || isSameDay(d, today));
+    });
 
-    const upcomingAbsences = shifts.filter(s => 
-        ["Urlaub", "Dienstreise", "Krank", "Frei"].includes(s.position) &&
-        isValid(parseISO(s.date)) &&
-        (isAfter(parseISO(s.date), today) || isSameDay(parseISO(s.date), today))
-    );
+    const upcomingAbsences = shifts.filter(s => {
+        if (!s || !s.position || !s.date) return false;
+        const d = safeParseISO(s.date);
+        if (!d) return false;
+        return ["Urlaub", "Dienstreise", "Krank", "Frei"].includes(s.position) &&
+            (isAfter(d, today) || isSameDay(d, today));
+    });
 
     const pendingWishes = wishes.filter(w => w.status === 'pending' || w.status === 'cancellation_requested');
     const recentDecisions = wishes.filter(w => w.status !== 'pending' && w.status !== 'cancellation_requested').slice(0, 5);
@@ -558,10 +584,10 @@ export default function MyDashboardPage() {
                                         {upcomingServices.slice(0, 10).map(shift => (
                                             <TableRow key={shift.id}>
                                                 <TableCell className="font-medium w-[100px]">
-                                                    {isValid(parseISO(shift.date)) ? format(parseISO(shift.date), 'dd.MM. yy', { locale: de }) : '-'}
+                                                    {safeFormatDate(shift.date, 'dd.MM. yy', { locale: de })}
                                                 </TableCell>
                                                 <TableCell className="text-slate-500 text-xs">
-                                                    {isValid(parseISO(shift.date)) ? format(parseISO(shift.date), 'EEEE', { locale: de }) : '-'}
+                                                    {safeFormatDate(shift.date, 'EEEE', { locale: de })}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
@@ -609,7 +635,7 @@ export default function MyDashboardPage() {
                                         <div key={notif.id} className="bg-white p-2 rounded border border-amber-200 shadow-sm text-sm flex justify-between items-start gap-2">
                                             <div>
                                                 <div className="font-medium text-slate-800">
-                                                    {isValid(parseISO(notif.date)) ? format(parseISO(notif.date), 'dd.MM.yyyy') : '-'}
+                                                    {safeFormatDate(notif.date, 'dd.MM.yyyy')}
                                                 </div>
                                                 <div className="text-slate-600 text-xs mt-0.5">
                                                     {notif.message}
@@ -637,10 +663,10 @@ export default function MyDashboardPage() {
                                         {upcomingAbsences.slice(0, 10).map(shift => (
                                             <TableRow key={shift.id}>
                                                 <TableCell className="font-medium w-[100px]">
-                                                    {isValid(parseISO(shift.date)) ? format(parseISO(shift.date), 'dd.MM. yy', { locale: de }) : '-'}
+                                                    {safeFormatDate(shift.date, 'dd.MM. yy', { locale: de })}
                                                 </TableCell>
                                                 <TableCell className="text-slate-500 text-xs">
-                                                    {isValid(parseISO(shift.date)) ? format(parseISO(shift.date), 'EEEE', { locale: de }) : '-'}
+                                                    {safeFormatDate(shift.date, 'EEEE', { locale: de })}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline" className={
@@ -680,7 +706,7 @@ export default function MyDashboardPage() {
                                         {pendingWishes.map(w => (
                                             <div key={w.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-medium">{isValid(parseISO(w.date)) ? format(parseISO(w.date), 'dd.MM.yyyy') : '-'}</span>
+                                                    <span className="text-sm font-medium">{safeFormatDate(w.date, 'dd.MM.yyyy')}</span>
                                                     <span className="text-xs text-slate-500">
                                                         {w.type === 'service' ? 'Dienstwunsch' : 'Kein Dienst'}
                                                     </span>
@@ -705,7 +731,7 @@ export default function MyDashboardPage() {
                                         {recentDecisions.map(w => (
                                             <div key={w.id} className="flex flex-col p-2 bg-white rounded border border-slate-100 gap-2">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-sm font-medium">{isValid(parseISO(w.date)) ? format(parseISO(w.date), 'dd.MM.yyyy') : '-'}</span>
+                                                    <span className="text-sm font-medium">{safeFormatDate(w.date, 'dd.MM.yyyy')}</span>
                                                     {w.status === 'approved' ? (
                                                         <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">
                                                             <CheckCircle2 className="w-3 h-3 mr-1" /> Genehmigt
