@@ -405,21 +405,11 @@ function TenantSelector({ user, tenants, onSave, onClose, isLoading }) {
                                 className={`flex items-center space-x-2 p-2 rounded border cursor-pointer hover:bg-slate-50 ${
                                     isSelected ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200'
                                 }`}
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    toggleTenant(tenant.id);
-                                }}
+                                onClick={() => toggleTenant(tenant.id)}
                             >
                                 <Checkbox 
                                     checked={isSelected}
-                                    onCheckedChange={(checked) => {
-                                        if (checked && !isSelected) {
-                                            setSelectedTenants(prev => [...prev, tenant.id]);
-                                        } else if (!checked && isSelected) {
-                                            setSelectedTenants(prev => prev.filter(id => id !== tenant.id));
-                                        }
-                                    }}
+                                    onClick={(e) => e.stopPropagation()}
                                 />
                                 <div className="flex-1">
                                     <div className="font-medium text-sm">{tenant.name}</div>
