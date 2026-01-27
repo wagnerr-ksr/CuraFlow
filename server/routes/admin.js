@@ -438,11 +438,14 @@ router.post('/rename-position', async (req, res, next) => {
 });
 
 // ===== DB TOKEN MANAGEMENT (Server-side Token Storage) =====
-// These tokens are stored in the database, not in localStorage
+// IMPORTANT: These tokens are ALWAYS stored on the MASTER database (from ENV variables)
+// NOT on tenant databases! This ensures tokens are available regardless of which
+// tenant database is currently active.
+// We use `db` (master) instead of `req.db` (tenant) for all token operations.
 
-// Ensure db_tokens table exists
-async function ensureDbTokensTable(dbPool) {
-  await dbPool.execute(`
+// Ensure db_tokens table exists on MASTER database
+async function ensureDbTokensTable(masterDb) {
+  await masterDb.execute(`
     CREATE TABLE IF NOT EXISTS db_tokens (
       id VARCHAR(36) PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
