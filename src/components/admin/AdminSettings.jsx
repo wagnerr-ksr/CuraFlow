@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Settings, ShieldCheck } from 'lucide-react';
+import ServerTokenManager from './ServerTokenManager';
 
 export default function AdminSettings() {
     const queryClient = useQueryClient();
@@ -219,6 +220,9 @@ export default function AdminSettings() {
                     </p>
                 </div>
             </div>
+
+            {/* Server Token Manager */}
+            <ServerTokenManager />
         </div>
     );
 }
