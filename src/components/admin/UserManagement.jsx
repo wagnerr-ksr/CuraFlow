@@ -54,11 +54,18 @@ export default function UserManagement() {
     });
 
     const updateUserMutation = useMutation({
-        mutationFn: async ({ id, data }) => api.updateUser(id, data),
-        onSuccess: () => {
+        mutationFn: async ({ id, data }) => {
+            console.log('[UserManagement] Updating user:', { id, data });
+            const result = await api.updateUser(id, data);
+            console.log('[UserManagement] Update result:', result);
+            return result;
+        },
+        onSuccess: (data) => {
+            console.log('[UserManagement] Update success:', data);
             queryClient.invalidateQueries(['users']);
         },
         onError: (err) => {
+            console.error('[UserManagement] Update error:', err);
             alert("Fehler beim Aktualisieren: " + err.message);
         }
     });
@@ -342,16 +349,21 @@ function TenantSelector({ user, tenants, onSave, onClose, isLoading }) {
     const [allAccess, setAllAccess] = useState(!currentTenants || currentTenants.length === 0);
 
     const toggleTenant = (tenantId) => {
-        setSelectedTenants(prev => 
-            prev.includes(tenantId) 
+        console.log('[TenantSelector] toggleTenant:', tenantId);
+        setSelectedTenants(prev => {
+            const newValue = prev.includes(tenantId) 
                 ? prev.filter(id => id !== tenantId)
-                : [...prev, tenantId]
-        );
+                : [...prev, tenantId];
+            console.log('[TenantSelector] New selectedTenants:', newValue);
+            return newValue;
+        });
     };
 
     const handleSave = () => {
         // If "All Access" is selected, save null or empty array
-        onSave(allAccess ? null : selectedTenants);
+        const valueToSave = allAccess ? null : selectedTenants;
+        console.log('[TenantSelector] handleSave called:', { allAccess, selectedTenants, valueToSave });
+        onSave(valueToSave);
     };
 
     return (

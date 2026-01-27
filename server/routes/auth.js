@@ -336,6 +336,9 @@ router.patch('/users/:userId', authMiddleware, adminMiddleware, async (req, res,
     const { userId } = req.params;
     const { data } = req.body;
     
+    console.log('[Auth] PATCH /users/:userId - Updating user:', userId);
+    console.log('[Auth] Data received:', JSON.stringify(data));
+    
     if (!data || Object.keys(data).length === 0) {
       return res.status(400).json({ error: 'Keine Daten zum Aktualisieren' });
     }
@@ -372,17 +375,21 @@ router.patch('/users/:userId', authMiddleware, adminMiddleware, async (req, res,
     }
     
     if (updates.length === 0) {
+      console.log('[Auth] No valid fields to update');
       return res.status(400).json({ error: 'Keine gültigen Felder' });
     }
     
     values.push(userId);
     
-    await db.execute(
-      `UPDATE app_users SET ${updates.join(', ')}, updated_date = NOW() WHERE id = ?`,
-      values
-    );
+    const sql = `UPDATE app_users SET ${updates.join(', ')}, updated_date = NOW() WHERE id = ?`;
+    console.log('[Auth] Executing SQL:', sql);
+    console.log('[Auth] With values:', values);
+    
+    const [result] = await db.execute(sql, values);
+    console.log('[Auth] Update result:', result);
     
     const [rows] = await db.execute('SELECT * FROM app_users WHERE id = ?', [userId]);
+    console.log('[Auth] Updated user:', rows[0]?.allowed_tenants);
     
     res.json(sanitizeUser(rows[0]));
   } catch (error) {
