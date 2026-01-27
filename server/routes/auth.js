@@ -128,6 +128,7 @@ router.post('/login', async (req, res, next) => {
 });
 
 // ============ REGISTER (Admin only) ============
+// New users inherit the creating admin's tenant restrictions
 router.post('/register', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const { email, password, full_name, role = 'user', doctor_id } = req.body;
@@ -146,17 +147,23 @@ router.post('/register', authMiddleware, adminMiddleware, async (req, res, next)
       return res.status(409).json({ error: 'Benutzer existiert bereits' });
     }
     
+    // Get the creating admin's allowed_tenants to inherit
+    const [adminRows] = await db.execute('SELECT allowed_tenants FROM app_users WHERE id = ?', [req.user.sub]);
+    const adminTenants = adminRows[0]?.allowed_tenants;
+    
     // Hash password
     const password_hash = await bcrypt.hash(password, 12);
     const id = crypto.randomUUID();
     
     await db.execute(
-      `INSERT INTO app_users (id, email, password_hash, full_name, role, doctor_id, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, 1)`,
-      [id, email.toLowerCase().trim(), password_hash, full_name || '', role, doctor_id || null]
+      `INSERT INTO app_users (id, email, password_hash, full_name, role, doctor_id, is_active, allowed_tenants) 
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+      [id, email.toLowerCase().trim(), password_hash, full_name || '', role, doctor_id || null, adminTenants || null]
     );
     
     const [newUser] = await db.execute('SELECT * FROM app_users WHERE id = ?', [id]);
+    
+    console.log(`[Auth] User created by ${req.user.email}: ${email}, inherited tenants: ${adminTenants}`);
     
     res.status(201).json({ user: sanitizeUser(newUser[0]) });
   } catch (error) {
@@ -321,10 +328,41 @@ router.post('/change-email', authMiddleware, async (req, res, next) => {
 });
 
 // ============ LIST USERS (Admin only) ============
+// Admins only see users that share at least one tenant with them
 router.get('/users', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
+    // Get the requesting admin's allowed_tenants
+    const [adminRows] = await db.execute('SELECT allowed_tenants FROM app_users WHERE id = ?', [req.user.sub]);
+    const adminTenants = adminRows[0]?.allowed_tenants;
+    
+    // Parse admin tenants (could be JSON string, array, or null)
+    let adminTenantList = null;
+    if (adminTenants) {
+      adminTenantList = typeof adminTenants === 'string' ? JSON.parse(adminTenants) : adminTenants;
+    }
+    
     const [rows] = await db.execute('SELECT * FROM app_users ORDER BY created_date DESC');
-    res.json(rows.map(sanitizeUser));
+    
+    // If admin has no tenant restrictions (null or empty), show all users
+    // Otherwise, filter to users who share at least one tenant OR have no restrictions
+    let filteredUsers = rows;
+    if (adminTenantList && adminTenantList.length > 0) {
+      filteredUsers = rows.filter(user => {
+        // Parse user's allowed_tenants
+        let userTenants = user.allowed_tenants;
+        if (userTenants && typeof userTenants === 'string') {
+          try { userTenants = JSON.parse(userTenants); } catch(e) { userTenants = null; }
+        }
+        
+        // Users with no restrictions are visible to all admins
+        if (!userTenants || userTenants.length === 0) return true;
+        
+        // Check if there's at least one shared tenant
+        return userTenants.some(t => adminTenantList.includes(t));
+      });
+    }
+    
+    res.json(filteredUsers.map(sanitizeUser));
   } catch (error) {
     next(error);
   }
