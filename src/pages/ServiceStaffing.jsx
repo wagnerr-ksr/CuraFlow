@@ -63,7 +63,7 @@ export default function ServiceStaffingPage() {
         queryFn: () => db.Workplace.list(null, 1000),
     });
 
-    const { validateWithUI, shouldCreateAutoFrei, findAutoFreiToCleanup } = useShiftValidation(allShifts);
+    const { validateWithUI, shouldCreateAutoFrei, findAutoFreiToCleanup } = useShiftValidation(allShifts, { workplaces });
 
     const serviceTypes = useMemo(() => {
         const dynamicServices = workplaces
