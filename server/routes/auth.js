@@ -451,6 +451,60 @@ router.delete('/users/:userId', authMiddleware, adminMiddleware, async (req, res
   }
 });
 
+// ============ GET MY ALLOWED TENANTS ============
+// Returns the tenants that the current user is allowed to access
+router.get('/my-tenants', authMiddleware, async (req, res, next) => {
+  try {
+    // Get user's allowed_tenants
+    const [userRows] = await db.execute(
+      'SELECT allowed_tenants FROM app_users WHERE id = ? AND is_active = 1',
+      [req.user.sub]
+    );
+    
+    if (userRows.length === 0) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+    
+    const allowedTenants = userRows[0].allowed_tenants;
+    let allowedTenantList = null;
+    
+    // Parse allowed_tenants (could be JSON string, array, or null)
+    if (allowedTenants) {
+      allowedTenantList = typeof allowedTenants === 'string' 
+        ? JSON.parse(allowedTenants) 
+        : allowedTenants;
+    }
+    
+    // Get all db_tokens
+    const [tokenRows] = await db.execute(`
+      SELECT id, name, host, db_name, description, is_active
+      FROM db_tokens
+      ORDER BY name ASC
+    `);
+    
+    // Filter tokens based on user's allowed_tenants
+    let filteredTokens = tokenRows;
+    
+    // If allowedTenantList is null or empty, user has access to all tenants
+    if (allowedTenantList && allowedTenantList.length > 0) {
+      filteredTokens = tokenRows.filter(token => allowedTenantList.includes(token.id));
+    }
+    
+    // Convert is_active from MySQL tinyint to proper boolean
+    const tokens = filteredTokens.map(row => ({
+      ...row,
+      is_active: Boolean(row.is_active)
+    }));
+    
+    res.json({
+      hasFullAccess: !allowedTenantList || allowedTenantList.length === 0,
+      tenants: tokens
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ============ VERIFY TOKEN ============
 router.get('/verify', (req, res) => {
   const authHeader = req.headers.authorization;

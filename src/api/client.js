@@ -119,6 +119,18 @@ class APIClient {
     }
   }
 
+  // Get allowed tenants for the current user
+  async getMyTenants() {
+    return this.request('/api/auth/my-tenants');
+  }
+
+  // Activate a specific tenant/db-token
+  async activateTenant(tokenId) {
+    return this.request(`/api/admin/db-tokens/${tokenId}/activate`, {
+      method: 'POST'
+    });
+  }
+
   // ==================== Admin User Management ====================
 
   async listUsers() {

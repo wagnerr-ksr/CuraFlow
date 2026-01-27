@@ -10,6 +10,10 @@ const AuthContext = createContext({
     isReadOnly: true,
     user: null,
     isLoading: true,
+    needsTenantSelection: false,
+    allowedTenants: [],
+    hasFullTenantAccess: false,
+    completeTenantSelection: () => {},
     refreshUser: async () => {},
     updateMe: async () => {},
     logout: () => {},
@@ -28,6 +32,9 @@ const JWTAuthProviderInner = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [token, setToken] = useState(null);
     const [mustChangePassword, setMustChangePassword] = useState(false);
+    const [needsTenantSelection, setNeedsTenantSelection] = useState(false);
+    const [allowedTenants, setAllowedTenants] = useState([]);
+    const [hasFullTenantAccess, setHasFullTenantAccess] = useState(false);
 
     const getStoredToken = () => {
         try {
@@ -85,7 +92,41 @@ const JWTAuthProviderInner = ({ children }) => {
         setUser(data.user);
         setIsAuthenticated(true);
         setMustChangePassword(data.must_change_password === true);
+        
+        // Prüfen, ob Tenant-Auswahl erforderlich ist
+        try {
+            api.setToken(data.token);
+            const tenantsData = await api.getMyTenants();
+            
+            if (tenantsData.tenants && tenantsData.tenants.length > 0) {
+                setAllowedTenants(tenantsData.tenants);
+                setHasFullTenantAccess(tenantsData.hasFullAccess);
+                
+                // Wenn nur ein Tenant und kein Full-Access, automatisch aktivieren
+                // Ansonsten Dialog anzeigen
+                const activeTokenId = localStorage.getItem('active_token_id');
+                const isTokenEnabled = localStorage.getItem('db_token_enabled') === 'true';
+                
+                // Zeige Dialog wenn:
+                // 1. Mehr als ein Tenant ODER Full-Access (für Standard-DB Option)
+                // 2. UND kein Token bereits aktiv
+                if (!isTokenEnabled && (tenantsData.tenants.length > 1 || tenantsData.hasFullAccess)) {
+                    setNeedsTenantSelection(true);
+                } else if (!isTokenEnabled && tenantsData.tenants.length === 1) {
+                    // Nur ein Tenant, automatisch aktivieren
+                    setNeedsTenantSelection(true);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load tenants:', err);
+            // Bei Fehler einfach weitermachen ohne Tenant-Auswahl
+        }
+        
         return data;
+    };
+
+    const completeTenantSelection = () => {
+        setNeedsTenantSelection(false);
     };
 
     const logout = () => {
@@ -136,6 +177,10 @@ const JWTAuthProviderInner = ({ children }) => {
             token: token || getStoredToken(),
             mustChangePassword,
             setMustChangePassword,
+            needsTenantSelection,
+            allowedTenants,
+            hasFullTenantAccess,
+            completeTenantSelection,
             login,
             logout,
             refreshUser,

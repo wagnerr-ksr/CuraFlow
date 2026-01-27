@@ -7,10 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import TenantSelectionDialog from '@/components/auth/TenantSelectionDialog';
 
 export default function AuthLoginPage() {
     const navigate = useNavigate();
-    const { isAuthenticated, isLoading, login } = useAuth();
+    const { 
+        isAuthenticated, 
+        isLoading, 
+        login, 
+        needsTenantSelection, 
+        allowedTenants, 
+        hasFullTenantAccess,
+        completeTenantSelection 
+    } = useAuth();
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -18,12 +27,12 @@ export default function AuthLoginPage() {
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Redirect if already authenticated
+    // Redirect if already authenticated (and no tenant selection needed)
     useEffect(() => {
-        if (!isLoading && isAuthenticated) {
+        if (!isLoading && isAuthenticated && !needsTenantSelection) {
             navigate(createPageUrl('MyDashboard'), { replace: true });
         }
-    }, [isAuthenticated, isLoading, navigate]);
+    }, [isAuthenticated, isLoading, needsTenantSelection, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -134,6 +143,14 @@ export default function AuthLoginPage() {
                     </form>
                 </CardContent>
             </Card>
+
+            {/* Mandanten-Auswahl Dialog */}
+            <TenantSelectionDialog
+                open={needsTenantSelection}
+                onComplete={completeTenantSelection}
+                tenants={allowedTenants}
+                hasFullAccess={hasFullTenantAccess}
+            />
         </div>
     );
 }
