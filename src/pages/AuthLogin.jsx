@@ -40,8 +40,9 @@ export default function AuthLoginPage() {
         setIsSubmitting(true);
 
         try {
-            await login(email, password);
-            navigate(createPageUrl('MyDashboard'), { replace: true });
+            const result = await login(email, password);
+            // Navigation erfolgt über useEffect wenn needsTenantSelection false ist
+            // oder nach Abschluss der Tenant-Auswahl
         } catch (err) {
             setError(err.message || 'Anmeldung fehlgeschlagen');
         } finally {

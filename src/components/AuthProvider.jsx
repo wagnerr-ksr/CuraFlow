@@ -87,6 +87,15 @@ const JWTAuthProviderInner = ({ children }) => {
     }, []);
 
     const login = async (email, password) => {
+        // Zuerst alten DB-Token zurücksetzen (wichtig bei User-Wechsel)
+        try {
+            await disableDbToken();
+            localStorage.removeItem('active_token_id');
+            localStorage.removeItem('db_credentials');
+        } catch (e) {
+            console.error('Failed to clear old DB token:', e);
+        }
+        
         const data = await api.login(email, password);
         storeToken(data.token);
         setToken(data.token);
