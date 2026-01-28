@@ -540,9 +540,20 @@ async function ensureDbTokensTable(masterDb) {
 }
 
 // GET all stored DB tokens (metadata only, not the actual token value for security)
+// Filters tokens based on admin's allowed_tenants
 router.get('/db-tokens', async (req, res, next) => {
   try {
     await ensureDbTokensTable(db);
+    
+    // Get the requesting admin's allowed_tenants
+    const [adminRows] = await db.execute('SELECT allowed_tenants FROM app_users WHERE id = ?', [req.user.sub]);
+    const adminTenants = adminRows[0]?.allowed_tenants;
+    
+    // Parse admin tenants (could be JSON string, array, or null)
+    let adminTenantList = null;
+    if (adminTenants) {
+      adminTenantList = typeof adminTenants === 'string' ? JSON.parse(adminTenants) : adminTenants;
+    }
     
     const [rows] = await db.execute(`
       SELECT id, name, host, db_name, description, is_active, created_by, created_date, updated_date
@@ -550,8 +561,15 @@ router.get('/db-tokens', async (req, res, next) => {
       ORDER BY name ASC
     `);
     
+    // Filter tokens based on admin's allowed_tenants
+    // If adminTenantList is null or empty, admin has access to all tenants
+    let filteredRows = rows;
+    if (adminTenantList && adminTenantList.length > 0) {
+      filteredRows = rows.filter(token => adminTenantList.includes(token.id));
+    }
+    
     // Convert is_active from MySQL tinyint to proper boolean
-    const tokens = rows.map(row => ({
+    const tokens = filteredRows.map(row => ({
       ...row,
       is_active: Boolean(row.is_active)
     }));

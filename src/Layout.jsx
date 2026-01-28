@@ -9,7 +9,6 @@ import AccountMenu from '@/components/auth/AccountMenu';
 import ForcePasswordChangeDialog from '@/components/auth/ForcePasswordChangeDialog';
 
 import { Menu, ChevronLeft } from 'lucide-react';
-import GlobalVoiceControl from '@/components/GlobalVoiceControl';
 import { generateThemeCss } from '@/components/themeConfig';
 import ThemeSelector from '@/components/ThemeSelector';
 import { Palette } from 'lucide-react';
@@ -276,9 +275,6 @@ function LayoutContent({ children }) {
             </button>
           )}
           <div className="flex-1 flex justify-center items-center gap-4">
-            {isAuthenticated && (
-                <GlobalVoiceControl />
-            )}
             {isReadOnly && (
                 <div className="bg-amber-100 text-amber-800 px-4 py-1 rounded-full text-xs font-medium flex items-center gap-2">
                     <Eye className="w-3 h-3" />

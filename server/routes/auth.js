@@ -341,7 +341,8 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res, next) => 
       adminTenantList = typeof adminTenants === 'string' ? JSON.parse(adminTenants) : adminTenants;
     }
     
-    const [rows] = await db.execute('SELECT * FROM app_users ORDER BY created_date DESC');
+    // Only return active users (is_active = 1)
+    const [rows] = await db.execute('SELECT * FROM app_users WHERE is_active = 1 ORDER BY created_date DESC');
     
     // If admin has no tenant restrictions (null or empty), show all users
     // Otherwise, filter to users who share at least one tenant OR have no restrictions
@@ -379,6 +380,41 @@ router.patch('/users/:userId', authMiddleware, adminMiddleware, async (req, res,
     
     if (!data || Object.keys(data).length === 0) {
       return res.status(400).json({ error: 'Keine Daten zum Aktualisieren' });
+    }
+    
+    // Validate tenant assignment - admin can only assign tenants they have access to
+    if (data.allowed_tenants !== undefined) {
+      // Get the requesting admin's allowed_tenants
+      const [adminRows] = await db.execute('SELECT allowed_tenants FROM app_users WHERE id = ?', [req.user.sub]);
+      const adminTenants = adminRows[0]?.allowed_tenants;
+      
+      // Parse admin tenants
+      let adminTenantList = null;
+      if (adminTenants) {
+        adminTenantList = typeof adminTenants === 'string' ? JSON.parse(adminTenants) : adminTenants;
+      }
+      
+      // If admin has restricted access, validate the assigned tenants
+      if (adminTenantList && adminTenantList.length > 0 && data.allowed_tenants !== null) {
+        const requestedTenants = Array.isArray(data.allowed_tenants) 
+          ? data.allowed_tenants 
+          : (typeof data.allowed_tenants === 'string' ? JSON.parse(data.allowed_tenants) : []);
+        
+        // Check if all requested tenants are in the admin's allowed list
+        const invalidTenants = requestedTenants.filter(t => !adminTenantList.includes(t));
+        if (invalidTenants.length > 0) {
+          return res.status(403).json({ 
+            error: 'Sie können nur Mandanten zuweisen, für die Sie selbst berechtigt sind' 
+          });
+        }
+      }
+      
+      // Admin with restricted access cannot give full access (null) to others
+      if (adminTenantList && adminTenantList.length > 0 && data.allowed_tenants === null) {
+        return res.status(403).json({ 
+          error: 'Sie können keinen Vollzugriff auf alle Mandanten vergeben' 
+        });
+      }
     }
     
     // Admin can update more fields

@@ -14,7 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 
 export default function UserManagement() {
     const queryClient = useQueryClient();
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showTenantDialog, setShowTenantDialog] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -321,6 +321,7 @@ export default function UserManagement() {
                         <TenantSelector 
                             user={selectedUser}
                             tenants={tenants}
+                            adminHasFullAccess={tenants.length === 0 || !user?.allowed_tenants || (Array.isArray(user.allowed_tenants) && user.allowed_tenants.length === 0)}
                             onSave={(allowedTenants) => {
                                 updateUserMutation.mutate({
                                     id: selectedUser.id,
@@ -340,13 +341,16 @@ export default function UserManagement() {
 }
 
 // Separate component for tenant selection
-function TenantSelector({ user, tenants, onSave, onClose, isLoading }) {
+function TenantSelector({ user, tenants, adminHasFullAccess, onSave, onClose, isLoading }) {
     const currentTenants = user.allowed_tenants ? 
         (typeof user.allowed_tenants === 'string' ? JSON.parse(user.allowed_tenants) : user.allowed_tenants) 
         : [];
     
     const [selectedTenants, setSelectedTenants] = useState(currentTenants || []);
-    const [allAccess, setAllAccess] = useState(!currentTenants || currentTenants.length === 0);
+    // Only allow "All Access" if admin has full access themselves
+    const [allAccess, setAllAccess] = useState(
+        adminHasFullAccess && (!currentTenants || currentTenants.length === 0)
+    );
 
     const toggleTenant = (tenantId) => {
         console.log('[TenantSelector] toggleTenant:', tenantId);
@@ -372,23 +376,25 @@ function TenantSelector({ user, tenants, onSave, onClose, isLoading }) {
                 Benutzer: <span className="font-medium">{user.full_name || user.email}</span>
             </div>
 
-            {/* All Access Toggle */}
-            <div className="flex items-center space-x-2 p-3 bg-slate-50 rounded-lg border">
-                <Checkbox 
-                    id="all-access"
-                    checked={allAccess}
-                    onCheckedChange={(checked) => {
-                        setAllAccess(checked);
-                        if (checked) setSelectedTenants([]);
-                    }}
-                />
-                <label 
-                    htmlFor="all-access" 
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                    Zugriff auf alle Mandanten
-                </label>
-            </div>
+            {/* All Access Toggle - only show if admin has full access */}
+            {adminHasFullAccess && (
+                <div className="flex items-center space-x-2 p-3 bg-slate-50 rounded-lg border">
+                    <Checkbox 
+                        id="all-access"
+                        checked={allAccess}
+                        onCheckedChange={(checked) => {
+                            setAllAccess(checked);
+                            if (checked) setSelectedTenants([]);
+                        }}
+                    />
+                    <label 
+                        htmlFor="all-access" 
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                        Zugriff auf alle Mandanten
+                    </label>
+                </div>
+            )}
 
             {/* Tenant List */}
             {!allAccess && (
