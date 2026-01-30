@@ -422,24 +422,33 @@ export class ShiftValidator {
     }
 
     /**
-     * Prüft ob Auto-Frei am Folgetag erstellt werden soll
+     * Prüft ob Auto-Frei am nächsten Werktag erstellt werden soll
+     * Überspringt Wochenenden und Feiertage automatisch
      * @returns {string|null} - Datum für Auto-Frei oder null
      */
     shouldCreateAutoFrei(position, dateStr, isPublicHoliday) {
         const workplace = this.workplaces.find(w => w.name === position);
         if (!workplace?.auto_off) return null;
 
-        const nextDay = addDays(parseISO(dateStr), 1);
+        // Suche den nächsten Werktag (max 7 Tage voraus, um Endlosschleifen zu vermeiden)
+        let candidateDay = addDays(parseISO(dateStr), 1);
         
-        // Kein Auto-Frei an Feiertagen
-        if (isPublicHoliday && isPublicHoliday(nextDay)) return null;
+        for (let i = 0; i < 7; i++) {
+            const dayOfWeek = candidateDay.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const isHoliday = isPublicHoliday && isPublicHoliday(candidateDay);
+            
+            if (!isWeekend && !isHoliday) {
+                // Gefunden: Werktag der kein Feiertag ist
+                return format(candidateDay, 'yyyy-MM-dd');
+            }
+            
+            // Nächsten Tag prüfen
+            candidateDay = addDays(candidateDay, 1);
+        }
         
-        // Kein Auto-Frei an Wochenenden (Samstag = 6, Sonntag = 0)
-        // Freizeitausgleich gilt nur für Werktage (Montag-Freitag)
-        const dayOfWeek = nextDay.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) return null;
-
-        return format(nextDay, 'yyyy-MM-dd');
+        // Kein passender Werktag gefunden (sehr unwahrscheinlich)
+        return null;
     }
 
     /**
