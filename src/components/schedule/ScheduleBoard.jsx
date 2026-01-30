@@ -395,27 +395,22 @@ export default function ScheduleBoard() {
                           isTimeslotRow: false,
                           isTimeslotGroupHeader: true,
                           timeslotCount: wpTimeslots.length,
-                          allTimeslotIds: wpTimeslots.map(t => t.id)
+                          allTimeslotIds: wpTimeslots.map(t => t.id),
+                          workplaceId: wp.id  // Für spätere Prüfung auf Altdaten
                       });
                       
-                      // Prüfen ob es Altdaten ohne Timeslot gibt
-                      const hasUnassignedShifts = currentWeekShifts.some(s => 
-                          s.position === wp.name && !s.timeslot_id
-                      );
-                      
-                      // Falls Altdaten vorhanden: "Nicht zugewiesen" Zeile anzeigen
-                      if (hasUnassignedShifts) {
-                          rows.push({
-                              name: wp.name,
-                              displayName: `${wp.name} (Nicht zugewiesen)`,
-                              timeslotId: '__unassigned__',
-                              timeslotLabel: 'Nicht zugewiesen',
-                              isTimeslotRow: true,
-                              isTimeslotGroupHeader: false,
-                              isUnassignedRow: true,
-                              parentWorkplace: wp.name
-                          });
-                      }
+                      // "Nicht zugewiesen" Zeile wird immer eingefügt, aber später gefiltert
+                      // wenn keine Altdaten vorhanden sind
+                      rows.push({
+                          name: wp.name,
+                          displayName: `${wp.name} (Nicht zugewiesen)`,
+                          timeslotId: '__unassigned__',
+                          timeslotLabel: 'Nicht zugewiesen',
+                          isTimeslotRow: true,
+                          isTimeslotGroupHeader: false,
+                          isUnassignedRow: true,
+                          parentWorkplace: wp.name
+                      });
                       
                       // Dann: Eine Zeile pro Timeslot (werden nur angezeigt wenn ausgeklappt)
                       for (const ts of wpTimeslots) {
@@ -2654,10 +2649,18 @@ export default function ScheduleBoard() {
                 );
                 
                 // Filter: Versteckte Zeilen ausblenden + Timeslot-Zeilen ausblenden wenn Gruppe eingeklappt
+                // + "Nicht zugewiesen" Zeilen ausblenden wenn keine Altdaten vorhanden
                 const visibleRows = normalizedRows.filter(r => {
                     if (hiddenRows.includes(r.name)) return false;
                     // Timeslot-Unterzeilen ausblenden wenn die Gruppe eingeklappt ist
                     if (r.isTimeslotRow && collapsedTimeslotGroups.includes(r.name)) return false;
+                    // "Nicht zugewiesen" Zeile nur anzeigen wenn es Altdaten gibt
+                    if (r.isUnassignedRow) {
+                        const hasUnassignedShifts = currentWeekShifts.some(s => 
+                            s.position === r.name && !s.timeslot_id
+                        );
+                        if (!hasUnassignedShifts) return false;
+                    }
                     return true;
                 });
                 if (visibleRows.length === 0) return null;
