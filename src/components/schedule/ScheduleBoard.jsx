@@ -385,7 +385,21 @@ export default function ScheduleBoard() {
                       .filter(t => t.workplace_id === wp.id)
                       .sort((a, b) => (a.order || 0) - (b.order || 0));
                   
-                  if (wpTimeslots.length > 0) {
+                  if (wpTimeslots.length === 1) {
+                      // NUR 1 Timeslot: Verhalte dich wie normaler Workplace
+                      // Mitarbeiter werden automatisch in den ersten Timeslot eingetragen
+                      rows.push({ 
+                          name: wp.name, 
+                          displayName: wp.name, 
+                          timeslotId: null, 
+                          isTimeslotRow: false, 
+                          isTimeslotGroupHeader: false,
+                          // Speichere den einzigen Timeslot für automatische Zuweisung
+                          singleTimeslotId: wpTimeslots[0].id,
+                          singleTimeslotLabel: wpTimeslots[0].label
+                      });
+                  } else if (wpTimeslots.length > 1) {
+                      // Mehr als 1 Timeslot: Expandierbare Gruppe
                       // Zuerst: Header-Zeile für die Gruppe (zum Ein-/Ausklappen)
                       rows.push({
                           name: wp.name,
@@ -1789,7 +1803,22 @@ export default function ScheduleBoard() {
         const position = dropParts[1];
         const rawTimeslotId = dropParts[2] || null;
         // '__unassigned__' bedeutet explizit kein Timeslot
-        const timeslotId = rawTimeslotId === '__unassigned__' ? null : rawTimeslotId;
+        let timeslotId = rawTimeslotId === '__unassigned__' ? null : rawTimeslotId;
+
+        // Auto-Timeslot: Wenn kein Timeslot angegeben, aber Workplace nur einen Timeslot hat,
+        // automatisch diesen verwenden
+        if (!timeslotId) {
+            const workplace = workplaces.find(w => w.name === position);
+            if (workplace?.timeslots_enabled) {
+                const wpTimeslots = workplaceTimeslots
+                    .filter(t => t.workplace_id === workplace.id)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+                if (wpTimeslots.length === 1) {
+                    timeslotId = wpTimeslots[0].id;
+                    console.log('Auto-assigning single timeslot:', timeslotId);
+                }
+            }
+        }
 
         console.log('Dropping Doctor:', doctorId, 'to', dateStr, position, 'timeslotId:', timeslotId);
 
@@ -1906,7 +1935,22 @@ export default function ScheduleBoard() {
         const newPosition = destParts[1];
         const rawNewTimeslotId = destParts[2] || null;
         // '__unassigned__' bedeutet explizit kein Timeslot
-        const newTimeslotId = rawNewTimeslotId === '__unassigned__' ? null : rawNewTimeslotId;
+        let newTimeslotId = rawNewTimeslotId === '__unassigned__' ? null : rawNewTimeslotId;
+        
+        // Auto-Timeslot: Wenn kein Timeslot angegeben, aber Workplace nur einen Timeslot hat,
+        // automatisch diesen verwenden
+        if (!newTimeslotId) {
+            const workplace = workplaces.find(w => w.name === newPosition);
+            if (workplace?.timeslots_enabled) {
+                const wpTimeslots = workplaceTimeslots
+                    .filter(t => t.workplace_id === workplace.id)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+                if (wpTimeslots.length === 1) {
+                    newTimeslotId = wpTimeslots[0].id;
+                    console.log('Auto-assigning single timeslot for move:', newTimeslotId);
+                }
+            }
+        }
         
         const srcParts = source.droppableId.split('__');
         const oldDateStr = srcParts[0];
@@ -2253,7 +2297,7 @@ export default function ScheduleBoard() {
     }
   };
 
-  const renderCellShifts = useMemo(() => (date, rowName, isSectionFullWidth, timeslotId = null, allTimeslotIds = null) => {
+  const renderCellShifts = useMemo(() => (date, rowName, isSectionFullWidth, timeslotId = null, allTimeslotIds = null, singleTimeslotId = null) => {
     // Wait for color settings to load
     if (isLoadingColors) return null;
     if (!isValid(date)) return null;
@@ -2262,6 +2306,12 @@ export default function ScheduleBoard() {
     // Filter shifts by position and optionally by timeslot_id
     const shifts = currentWeekShifts.filter(s => {
       if (s.date !== dateStr || s.position !== rowName) return false;
+      
+      // Fall 0: Einzelner Timeslot - zeige nur Shifts dieses Timeslots + Shifts ohne Timeslot
+      // Verhält sich wie normale Zeile, aber inkludiert Shifts des einzigen Timeslots
+      if (singleTimeslotId) {
+        return s.timeslot_id === singleTimeslotId || !s.timeslot_id;
+      }
       
       // Fall 1: Eingeklappte Gruppe - zeige ALLE Shifts aus allen Timeslots + Shifts ohne Timeslot
       if (allTimeslotIds && allTimeslotIds.length > 0) {
@@ -2942,7 +2992,8 @@ export default function ScheduleBoard() {
                                                     rowName, 
                                                     ["Dienste", "Demonstrationen & Konsile"].includes(section.title), 
                                                     rowTimeslotId,
-                                                    isGroupHeader && isGroupCollapsed ? rowObj.allTimeslotIds : null
+                                                    isGroupHeader && isGroupCollapsed ? rowObj.allTimeslotIds : null,
+                                                    rowObj.singleTimeslotId || null
                                                 )}
                                             </DroppableCell>
                                         )}
