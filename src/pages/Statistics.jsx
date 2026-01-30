@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Download, Loader2, BarChart3, Table as TableIcon, User } from "lucide-react";
+import { Download, Loader2, BarChart3, Table as TableIcon, User, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ChartCard from "@/components/statistics/ChartCard";
 import WishFulfillmentReport from "@/components/statistics/WishFulfillmentReport";
 import ComplianceReport from "@/components/statistics/ComplianceReport";
+import WorkingTimeReport from "@/components/statistics/WorkingTimeReport";
 
 const COLORS = {
     "Dienst Vordergrund": "#3b82f6", // blue-500
@@ -260,10 +261,15 @@ export default function StatisticsPage() {
             <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="overview" className="flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Übersicht & Charts</TabsTrigger>
+                    <TabsTrigger value="workingtime" className="flex items-center gap-2"><Clock className="w-4 h-4" /> Arbeitszeit</TabsTrigger>
                     <TabsTrigger value="compliance" className="flex items-center gap-2">Regel-Compliance</TabsTrigger>
                     <TabsTrigger value="wishes" className="flex items-center gap-2">Wunscherfüllung</TabsTrigger>
                     <TabsTrigger value="details" className="flex items-center gap-2"><TableIcon className="w-4 h-4" /> Detaillierte Tabelle</TabsTrigger>
                 </TabsList>
+                
+                <TabsContent value="workingtime">
+                    <WorkingTimeReport />
+                </TabsContent>
                 
                 <TabsContent value="overview" className="space-y-4">
                     {month === "all" && (

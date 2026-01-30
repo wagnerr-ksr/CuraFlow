@@ -392,6 +392,27 @@ export default function WorkplaceConfigDialog({ defaultTab = "Rotationen" }) {
                                                                                 />
                                                                                 </div>
 
+                                                                                <div className="p-3 border rounded bg-slate-50 space-y-2">
+                                                                                    <div className="space-y-0.5">
+                                                                                        <Label className="text-base">Arbeitszeit-Anteil</Label>
+                                                                                        <div className="text-xs text-slate-500">
+                                                                                            Prozentsatz der Arbeitszeit für Statistik (z.B. Rufbereitschaft = 70%)
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            min="0"
+                                                                                            max="100"
+                                                                                            step="5"
+                                                                                            value={editForm.work_time_percentage ?? 100}
+                                                                                            onChange={(e) => setEditForm({...editForm, work_time_percentage: parseFloat(e.target.value) || 100})}
+                                                                                            className="w-20"
+                                                                                        />
+                                                                                        <span className="text-sm text-slate-500">%</span>
+                                                                                    </div>
+                                                                                </div>
+
                                                                                 <div className="space-y-2">
                                                                                     <Label>Aktive Tage</Label>
                                                                                     <div className="text-xs text-slate-500 mb-1">

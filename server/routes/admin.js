@@ -631,6 +631,21 @@ router.post('/run-timeslot-migrations', async (req, res, next) => {
       }
     }
 
+    // Migration 7: Add work_time_percentage to Workplace (for services like on-call = 70%)
+    try {
+      await dbPool.execute(`
+        ALTER TABLE Workplace 
+        ADD COLUMN work_time_percentage DECIMAL(5,2) DEFAULT 100.00
+      `);
+      results.push({ migration: 'add_workplace_work_time_percentage', status: 'success' });
+    } catch (err) {
+      if (err.code === 'ER_DUP_FIELDNAME') {
+        results.push({ migration: 'add_workplace_work_time_percentage', status: 'skipped', reason: 'Column already exists' });
+      } else {
+        results.push({ migration: 'add_workplace_work_time_percentage', status: 'error', error: err.message });
+      }
+    }
+
     // Clear column cache for affected tables so new columns are recognized
     const cacheKey = req.headers['x-db-token'] || 'default';
     clearColumnsCache(['Workplace', 'WorkplaceTimeslot', 'ShiftEntry', 'TimeslotTemplate'], cacheKey);
@@ -686,6 +701,12 @@ router.get('/timeslot-migration-status', async (req, res, next) => {
         name: 'add_workplace_overlap_tolerance',
         description: 'Übergangszeit-Einstellung pro Arbeitsplatz',
         applied: columnNames.includes('default_overlap_tolerance_minutes')
+      });
+      
+      migrations.push({
+        name: 'add_workplace_work_time_percentage',
+        description: 'Arbeitszeit-Prozentsatz pro Dienst (z.B. Rufbereitschaft = 70%)',
+        applied: columnNames.includes('work_time_percentage')
       });
     } catch (err) {
       migrations.push({
