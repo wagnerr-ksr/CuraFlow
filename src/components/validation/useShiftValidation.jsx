@@ -33,11 +33,19 @@ export function useShiftValidation(shifts = [], customOptions = {}) {
         staleTime: 1000 * 60 * 5
     });
 
+    // Timeslots für Zeitfenster-Validierung
+    const { data: timeslotsData = [] } = useQuery({
+        queryKey: ['workplaceTimeslots'],
+        queryFn: () => db.WorkplaceTimeslot.list(null, 1000),
+        staleTime: 1000 * 60 * 5
+    });
+
     // Merge internal data with custom options (custom options take precedence)
     const doctors = customOptions.doctors || doctorsData;
     const workplaces = customOptions.workplaces || workplacesData;
     const systemSettings = customOptions.systemSettings || settingsData;
     const staffingEntries = customOptions.staffingEntries || staffingData;
+    const timeslots = customOptions.timeslots || timeslotsData;
 
     const validator = useMemo(() => {
         return new ShiftValidator({
@@ -46,9 +54,10 @@ export function useShiftValidation(shifts = [], customOptions = {}) {
             workplaces,
             systemSettings,
             staffingEntries,
+            timeslots,
             ...customOptions
         });
-    }, [doctors, shifts, workplaces, systemSettings, staffingEntries, customOptions]);
+    }, [doctors, shifts, workplaces, systemSettings, staffingEntries, timeslots, customOptions]);
 
     /**
      * Validiert eine geplante Shift-Operation

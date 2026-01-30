@@ -50,7 +50,8 @@ const fromSqlRow = (row) => {
       'receive_email_notifications', 'exclude_from_staffing_plan', 
       'user_viewed', 'auto_off', 'show_in_service_plan', 
       'allows_rotation_concurrently', 'allows_consecutive_days', 
-      'acknowledged', 'is_active', 'is_specialist'
+      'acknowledged', 'is_active', 'is_specialist',
+      'timeslots_enabled', 'spans_midnight'
     ];
     if (boolFields.includes(key)) {
       res[key] = !!res[key];

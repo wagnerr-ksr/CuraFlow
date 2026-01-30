@@ -515,6 +515,189 @@ router.get('/migration-status', async (req, res, next) => {
   }
 });
 
+// ===== TIMESLOT MIGRATIONS (Tenant-specific) =====
+// Run timeslot migrations on the currently active tenant database
+router.post('/run-timeslot-migrations', async (req, res, next) => {
+  try {
+    // Use tenant DB if available (req.db is set by tenantDbMiddleware)
+    const dbPool = req.db || db;
+    const results = [];
+
+    // Migration 1: Create WorkplaceTimeslot table
+    try {
+      await dbPool.execute(`
+        CREATE TABLE IF NOT EXISTS WorkplaceTimeslot (
+          id VARCHAR(255) PRIMARY KEY,
+          workplace_id VARCHAR(255) NOT NULL,
+          label VARCHAR(100) NOT NULL,
+          start_time TIME NOT NULL,
+          end_time TIME NOT NULL,
+          \`order\` INT DEFAULT 0,
+          overlap_tolerance_minutes INT DEFAULT 0,
+          spans_midnight BOOLEAN DEFAULT FALSE,
+          created_date DATETIME(3),
+          updated_date DATETIME(3),
+          created_by VARCHAR(255),
+          INDEX idx_timeslot_workplace (workplace_id)
+        )
+      `);
+      results.push({ migration: 'create_workplace_timeslot_table', status: 'success' });
+    } catch (err) {
+      if (err.code === 'ER_TABLE_EXISTS_ERROR') {
+        results.push({ migration: 'create_workplace_timeslot_table', status: 'skipped', reason: 'Table already exists' });
+      } else {
+        results.push({ migration: 'create_workplace_timeslot_table', status: 'error', error: err.message });
+      }
+    }
+
+    // Migration 2: Add timeslots_enabled to Workplace
+    try {
+      await dbPool.execute(`
+        ALTER TABLE Workplace 
+        ADD COLUMN timeslots_enabled BOOLEAN DEFAULT FALSE
+      `);
+      results.push({ migration: 'add_workplace_timeslots_enabled', status: 'success' });
+    } catch (err) {
+      if (err.code === 'ER_DUP_FIELDNAME') {
+        results.push({ migration: 'add_workplace_timeslots_enabled', status: 'skipped', reason: 'Column already exists' });
+      } else {
+        results.push({ migration: 'add_workplace_timeslots_enabled', status: 'error', error: err.message });
+      }
+    }
+
+    // Migration 3: Add default_overlap_tolerance_minutes to Workplace
+    try {
+      await dbPool.execute(`
+        ALTER TABLE Workplace 
+        ADD COLUMN default_overlap_tolerance_minutes INT DEFAULT 15
+      `);
+      results.push({ migration: 'add_workplace_overlap_tolerance', status: 'success' });
+    } catch (err) {
+      if (err.code === 'ER_DUP_FIELDNAME') {
+        results.push({ migration: 'add_workplace_overlap_tolerance', status: 'skipped', reason: 'Column already exists' });
+      } else {
+        results.push({ migration: 'add_workplace_overlap_tolerance', status: 'error', error: err.message });
+      }
+    }
+
+    // Migration 4: Add timeslot_id to ShiftEntry
+    try {
+      await dbPool.execute(`
+        ALTER TABLE ShiftEntry 
+        ADD COLUMN timeslot_id VARCHAR(255) DEFAULT NULL
+      `);
+      results.push({ migration: 'add_shiftentry_timeslot_id', status: 'success' });
+    } catch (err) {
+      if (err.code === 'ER_DUP_FIELDNAME') {
+        results.push({ migration: 'add_shiftentry_timeslot_id', status: 'skipped', reason: 'Column already exists' });
+      } else {
+        results.push({ migration: 'add_shiftentry_timeslot_id', status: 'error', error: err.message });
+      }
+    }
+
+    // Migration 5: Add index on timeslot_id in ShiftEntry
+    try {
+      await dbPool.execute(`
+        CREATE INDEX idx_shiftentry_timeslot ON ShiftEntry(timeslot_id)
+      `);
+      results.push({ migration: 'add_shiftentry_timeslot_index', status: 'success' });
+    } catch (err) {
+      if (err.code === 'ER_DUP_KEYNAME') {
+        results.push({ migration: 'add_shiftentry_timeslot_index', status: 'skipped', reason: 'Index already exists' });
+      } else {
+        results.push({ migration: 'add_shiftentry_timeslot_index', status: 'error', error: err.message });
+      }
+    }
+
+    console.log(`[Timeslot Migrations] Executed by ${req.user?.email}:`, results);
+
+    res.json({
+      success: true,
+      message: 'Timeslot-Migrationen ausgeführt',
+      results
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Check timeslot migration status
+router.get('/timeslot-migration-status', async (req, res, next) => {
+  try {
+    // Use tenant DB if available
+    const dbPool = req.db || db;
+    const migrations = [];
+
+    // Check WorkplaceTimeslot table
+    try {
+      const [tables] = await dbPool.execute(`SHOW TABLES LIKE 'WorkplaceTimeslot'`);
+      migrations.push({
+        name: 'create_workplace_timeslot_table',
+        description: 'Erstellt WorkplaceTimeslot-Tabelle',
+        applied: tables.length > 0
+      });
+    } catch (err) {
+      migrations.push({
+        name: 'create_workplace_timeslot_table',
+        description: 'Erstellt WorkplaceTimeslot-Tabelle',
+        applied: false,
+        error: err.message
+      });
+    }
+
+    // Check Workplace columns
+    try {
+      const [columns] = await dbPool.execute(`SHOW COLUMNS FROM Workplace`);
+      const columnNames = columns.map(c => c.Field);
+      
+      migrations.push({
+        name: 'add_workplace_timeslots_enabled',
+        description: 'Aktiviert Zeitfenster-Option pro Arbeitsplatz',
+        applied: columnNames.includes('timeslots_enabled')
+      });
+      
+      migrations.push({
+        name: 'add_workplace_overlap_tolerance',
+        description: 'Übergangszeit-Einstellung pro Arbeitsplatz',
+        applied: columnNames.includes('default_overlap_tolerance_minutes')
+      });
+    } catch (err) {
+      migrations.push({
+        name: 'workplace_columns',
+        description: 'Workplace-Spalten prüfen',
+        applied: false,
+        error: err.message
+      });
+    }
+
+    // Check ShiftEntry columns
+    try {
+      const [columns] = await dbPool.execute(`SHOW COLUMNS FROM ShiftEntry`);
+      const columnNames = columns.map(c => c.Field);
+      
+      migrations.push({
+        name: 'add_shiftentry_timeslot_id',
+        description: 'Timeslot-Zuordnung für ShiftEntries',
+        applied: columnNames.includes('timeslot_id')
+      });
+    } catch (err) {
+      migrations.push({
+        name: 'shiftentry_columns',
+        description: 'ShiftEntry-Spalten prüfen',
+        applied: false,
+        error: err.message
+      });
+    }
+
+    res.json({
+      migrations,
+      allApplied: migrations.every(m => m.applied)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ===== DB TOKEN MANAGEMENT (Server-side Token Storage) =====
 // IMPORTANT: These tokens are ALWAYS stored on the MASTER database (from ENV variables)
 // NOT on tenant databases! This ensures tokens are available regardless of which

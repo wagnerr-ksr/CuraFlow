@@ -1,4 +1,13 @@
 import { format, addDays, isWeekend, parseISO } from 'date-fns';
+import { timeslotsOverlap, createFullDayTimeslot, formatTimeslotShort } from '@/utils/timeslotUtils';
+
+// Hilfsfunktion für Fehlermeldungen
+function formatTimeRange(slot) {
+    if (!slot) return '';
+    const start = slot.start_time?.substring(0, 5) || '00:00';
+    const end = slot.end_time?.substring(0, 5) || '23:59';
+    return `${start}-${end}`;
+}
 
 // Standard Facharzt-Rollen (Fallback wenn nicht aus DB geladen)
 export const DEFAULT_SPECIALIST_ROLES = ["Chefarzt", "Oberarzt", "Facharzt"];
@@ -10,7 +19,7 @@ export const DEFAULT_ASSISTANT_ROLES = ["Assistenzarzt"];
  */
 
 export class ShiftValidator {
-    constructor({ doctors, shifts, workplaces, wishes, systemSettings, staffingEntries, specialistRoles }) {
+    constructor({ doctors, shifts, workplaces, wishes, systemSettings, staffingEntries, specialistRoles, timeslots }) {
         this.doctors = doctors || [];
         this.shifts = shifts || [];
         this.workplaces = workplaces || [];
@@ -20,6 +29,8 @@ export class ShiftValidator {
         // Dynamische Facharzt-Rollen aus DB, mit Fallback
         this.specialistRoles = specialistRoles || DEFAULT_SPECIALIST_ROLES;
         this.assistantRoles = DEFAULT_ASSISTANT_ROLES;
+        // Timeslots für Überlappungsprüfung
+        this.timeslots = timeslots || [];
         
         // Parse settings
         this.absenceBlockingRules = this._parseAbsenceRules();
@@ -79,6 +90,7 @@ export class ShiftValidator {
             excludeShiftId = null,  // Bei Updates: eigene Shift-ID ausschließen
             silent = false,         // Keine UI-Interaktion
             skipLimits = false,     // Limits überspringen (für Massenoperationen)
+            timeslotId = null,      // Ziel-Timeslot-ID (neu für Timeslot-Feature)
         } = options;
 
         const result = {
@@ -136,7 +148,90 @@ export class ShiftValidator {
             }
         }
 
+        // 6. Timeslot-Überlappung prüfen (nur wenn Timeslots aktiviert)
+        if (timeslotId || this._workplaceHasTimeslots(position)) {
+            const overlapResult = this._checkTimeslotOverlaps(
+                doctorId, dateStr, position, timeslotId, excludeShiftId
+            );
+            if (overlapResult.blocker) {
+                result.blockers.push(overlapResult.blocker);
+                result.canProceed = false;
+            }
+            if (overlapResult.warning) {
+                result.warnings.push(overlapResult.warning);
+            }
+        }
+
         return result;
+    }
+
+    /**
+     * Prüft ob ein Arbeitsplatz Timeslots aktiviert hat
+     */
+    _workplaceHasTimeslots(position) {
+        const workplace = this.workplaces.find(w => w.name === position);
+        return workplace?.timeslots_enabled === true;
+    }
+
+    /**
+     * Prüft ob ein Mitarbeiter in überlappenden Zeitfenstern eingeteilt ist
+     */
+    _checkTimeslotOverlaps(doctorId, dateStr, newPosition, newTimeslotId, excludeShiftId) {
+        // Alle ShiftEntries des Mitarbeiters am Tag laden
+        const doctorShifts = this.shifts.filter(s => 
+            s.doctor_id === doctorId && 
+            s.date === dateStr &&
+            s.id !== excludeShiftId
+        );
+
+        if (doctorShifts.length === 0) {
+            return {}; // Keine anderen Schichten an diesem Tag
+        }
+
+        // Neues Timeslot laden
+        const newTimeslot = newTimeslotId 
+            ? this.timeslots.find(t => t.id === newTimeslotId)
+            : null;
+
+        // Wenn kein Timeslot angegeben und Position hat keine Timeslots, ist es ganztägig
+        const newWorkplace = this.workplaces.find(w => w.name === newPosition);
+        const newEffectiveSlot = newTimeslot || 
+            (newWorkplace?.timeslots_enabled ? null : createFullDayTimeslot());
+
+        if (!newEffectiveSlot) {
+            // Timeslot-Position ohne konkreten Timeslot - das ist ein Problem
+            return { warning: 'Bitte wählen Sie ein Zeitfenster aus.' };
+        }
+
+        // Toleranz ermitteln
+        const tolerance = newTimeslot?.overlap_tolerance_minutes || 
+            newWorkplace?.default_overlap_tolerance_minutes || 0;
+
+        // Prüfe gegen alle anderen Schichten des Mitarbeiters
+        for (const existingShift of doctorShifts) {
+            const existingTimeslot = existingShift.timeslot_id
+                ? this.timeslots.find(t => t.id === existingShift.timeslot_id)
+                : null;
+
+            const existingWorkplace = this.workplaces.find(w => w.name === existingShift.position);
+            const existingEffectiveSlot = existingTimeslot || 
+                (existingWorkplace?.timeslots_enabled ? null : createFullDayTimeslot());
+
+            if (!existingEffectiveSlot) {
+                continue; // Existierender Eintrag hat keinen gültigen Slot
+            }
+
+            // Überlappung prüfen
+            if (timeslotsOverlap(newEffectiveSlot, existingEffectiveSlot, tolerance)) {
+                const existingLabel = existingTimeslot?.label || existingShift.position;
+                const newLabel = newTimeslot?.label || newPosition;
+                return { 
+                    blocker: `Zeitkonflikt: "${existingLabel}" überlappt mit "${newLabel}" um ${formatTimeRange(existingEffectiveSlot)}.`
+                };
+            }
+        }
+
+        return {};
     }
 
     _checkAbsenceConflicts(doctorId, dateStr, newPosition, excludeShiftId) {

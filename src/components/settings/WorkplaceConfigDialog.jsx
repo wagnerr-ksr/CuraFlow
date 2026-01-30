@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Plus, Trash2, GripVertical, Save, Loader2, X, FolderPlus } from 'lucide-react';
+import { Settings, Plus, Trash2, GripVertical, Save, Loader2, X, FolderPlus, Clock } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import TimeslotEditor from '@/components/admin/TimeslotEditor';
 
 // Default categories that always exist
 const DEFAULT_CATEGORIES = ["Rotationen", "Demonstrationen & Konsile", "Dienste"];
@@ -390,6 +391,39 @@ export default function WorkplaceConfigDialog({ defaultTab = "Rotationen" }) {
                                                                                     onCheckedChange={(checked) => setEditForm({...editForm, allows_consecutive_days: checked})}
                                                                                 />
                                                                                 </div>
+                                                                                
+                                                                                {/* Zeitfenster-Sektion */}
+                                                                                <div className="pt-4 border-t space-y-4">
+                                                                                    <div className="flex items-center justify-between p-3 border rounded bg-indigo-50">
+                                                                                        <div className="space-y-0.5">
+                                                                                            <Label className="text-base flex items-center gap-2">
+                                                                                                <Clock className="w-4 h-4" />
+                                                                                                Zeitfenster aktivieren
+                                                                                            </Label>
+                                                                                            <div className="text-xs text-slate-500">
+                                                                                                Ermöglicht die Besetzung mit wechselnden Teams über den Tag (z.B. Früh-/Spätdienst)
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <Switch
+                                                                                            checked={editForm.timeslots_enabled || false}
+                                                                                            onCheckedChange={(checked) => setEditForm({...editForm, timeslots_enabled: checked})}
+                                                                                        />
+                                                                                    </div>
+                                                                                    
+                                                                                    {editForm.timeslots_enabled && editForm.id && (
+                                                                                        <TimeslotEditor 
+                                                                                            workplaceId={editForm.id}
+                                                                                            defaultTolerance={editForm.default_overlap_tolerance_minutes || 15}
+                                                                                        />
+                                                                                    )}
+                                                                                    
+                                                                                    {editForm.timeslots_enabled && !editForm.id && (
+                                                                                        <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                                                                                            Speichern Sie zuerst, um Zeitfenster hinzuzufügen.
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+
                                                                                 <div className="space-y-2">
                                                                                     <Label>Aktive Tage</Label>
                                                                                     <div className="text-xs text-slate-500 mb-1">
