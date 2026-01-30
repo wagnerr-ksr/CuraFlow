@@ -289,7 +289,7 @@ export default function DatabaseManagement() {
                         </div>
                     )}
 
-                    {timeslotMigrationStatus?.allApplied ? (
+                    {timeslotMigrationStatus?.allApplied && (
                         <Alert className="bg-green-50 border-green-200">
                             <CheckCircle className="w-4 h-4 text-green-600" />
                             <AlertTitle className="text-green-800">Zeitfenster-Feature aktiviert</AlertTitle>
@@ -297,20 +297,23 @@ export default function DatabaseManagement() {
                                 Alle Migrationen wurden erfolgreich angewendet. Sie können nun in den Arbeitsplatz-Einstellungen Zeitfenster konfigurieren.
                             </AlertDescription>
                         </Alert>
-                    ) : (
-                        <Button 
-                            onClick={handleRunTimeslotMigrations}
-                            disabled={isRunningTimeslotMigrations}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700"
-                        >
-                            {isRunningTimeslotMigrations ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                                <ArrowUpCircle className="w-4 h-4 mr-2" />
-                            )}
-                            Zeitfenster-Migrationen ausführen
-                        </Button>
                     )}
+                    
+                    <Button 
+                        onClick={handleRunTimeslotMigrations}
+                        disabled={isRunningTimeslotMigrations}
+                        variant={timeslotMigrationStatus?.allApplied ? "outline" : "default"}
+                        className={timeslotMigrationStatus?.allApplied ? "w-full" : "w-full bg-indigo-600 hover:bg-indigo-700"}
+                    >
+                        {isRunningTimeslotMigrations ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                            <ArrowUpCircle className="w-4 h-4 mr-2" />
+                        )}
+                        {timeslotMigrationStatus?.allApplied 
+                            ? "Migrationen erneut ausführen / Cache leeren" 
+                            : "Zeitfenster-Migrationen ausführen"}
+                    </Button>
                 </CardContent>
             </Card>
 
