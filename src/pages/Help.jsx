@@ -24,7 +24,6 @@ import {
     Briefcase,
     Mail,
     Undo2,
-    Sparkles,
     Eye,
     EyeOff,
     Printer,
@@ -193,23 +192,6 @@ export default function HelpPage() {
                                         Jedes Zeitfenster kann mit unterschiedlichen Mitarbeitern besetzt werden. Die Zeiten werden in der Arbeitszeit-Statistik korrekt berechnet.
                                     </p>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-xl">
-                                <Sparkles className="w-6 h-6 text-amber-500" />
-                                KI-Planungsassistent
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <p className="text-sm text-slate-600">
-                                Der integrierte KI-Assistent kann Dienste und Rotationen automatisch planen. Aktivieren Sie ihn über den Button <strong>"KI-Planung"</strong> oben im Wochenplan.
-                            </p>
-                            <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 text-sm text-amber-900">
-                                <strong>Hinweis:</strong> Die KI berücksichtigt Abwesenheiten, Mindestbesetzung, Dienstregeln und bisherige Zuweisungen. Die Vorschläge werden zunächst als Vorschau angezeigt und können vor dem Übernehmen geprüft werden.
                             </div>
                         </CardContent>
                     </Card>
