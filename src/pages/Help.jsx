@@ -37,8 +37,24 @@ import {
     ChevronRight,
     Percent
 } from 'lucide-react';
+import { useTeamRoles } from '@/components/settings/TeamRoleSettings';
+
+// Farben für Rollen basierend auf Priority
+const ROLE_COLORS = [
+    'bg-red-100 text-red-700',      // 0 - Chefarzt
+    'bg-orange-100 text-orange-700', // 1 - Oberarzt
+    'bg-blue-100 text-blue-700',     // 2 - Facharzt
+    'bg-green-100 text-green-700',   // 3 - Assistenzarzt
+    'bg-slate-100 text-slate-700',   // 4+ - andere
+];
+
+function getRoleColor(priority) {
+    return ROLE_COLORS[Math.min(priority ?? 4, ROLE_COLORS.length - 1)];
+}
 
 export default function HelpPage() {
+    const { teamRoles } = useTeamRoles();
+    
     return (
         <div className="container mx-auto max-w-5xl space-y-8 pb-10">
             <div>
@@ -541,26 +557,40 @@ export default function HelpPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <Badge className="bg-red-100 text-red-700 w-28">Chefarzt</Badge>
-                                    <span className="text-sm text-slate-600">Oberste Führungsebene</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <Badge className="bg-orange-100 text-orange-700 w-28">Oberarzt</Badge>
-                                    <span className="text-sm text-slate-600">Kann Hintergrunddienste übernehmen</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <Badge className="bg-blue-100 text-blue-700 w-28">Facharzt</Badge>
-                                    <span className="text-sm text-slate-600">Kann alle Dienste übernehmen</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <Badge className="bg-green-100 text-green-700 w-28">Assistenzarzt</Badge>
-                                    <span className="text-sm text-slate-600">Eingeschränkte Dienstberechtigung</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <Badge className="bg-slate-100 text-slate-700 w-28">Nicht-Radiologe</Badge>
-                                    <span className="text-sm text-slate-600">Wird in Statistiken nicht gezählt</span>
-                                </div>
+                                {teamRoles.map((role, index) => (
+                                    <div key={role.id || role.name} className="flex items-center gap-3">
+                                        <Badge className={`w-28 ${getRoleColor(role.priority ?? index)}`}>
+                                            {role.name}
+                                        </Badge>
+                                        <div className="flex-1">
+                                            <span className="text-sm text-slate-600">
+                                                {role.description || (
+                                                    <>
+                                                        {role.can_do_background_duty && role.can_do_foreground_duty && 'Kann alle Dienste übernehmen'}
+                                                        {role.can_do_background_duty && !role.can_do_foreground_duty && 'Kann Hintergrunddienste übernehmen'}
+                                                        {!role.can_do_background_duty && role.can_do_foreground_duty && 'Kann Vordergrunddienste übernehmen'}
+                                                        {!role.can_do_background_duty && !role.can_do_foreground_duty && role.excluded_from_statistics && 'Wird in Statistiken nicht gezählt'}
+                                                        {!role.can_do_background_duty && !role.can_do_foreground_duty && !role.excluded_from_statistics && 'Keine Dienstberechtigung'}
+                                                    </>
+                                                )}
+                                            </span>
+                                            <div className="flex gap-1 mt-1">
+                                                {role.is_specialist && (
+                                                    <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-600">Facharzt</Badge>
+                                                )}
+                                                {role.can_do_foreground_duty && (
+                                                    <Badge variant="secondary" className="text-xs bg-green-50 text-green-600">VG</Badge>
+                                                )}
+                                                {role.can_do_background_duty && (
+                                                    <Badge variant="secondary" className="text-xs bg-orange-50 text-orange-600">HG</Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-3 bg-indigo-50 text-indigo-900 text-sm rounded-lg border border-indigo-100 mt-4">
+                                <strong>Hinweis:</strong> Rollen können im Admin-Bereich unter "Team-Funktionen" angepasst werden.
                             </div>
                         </CardContent>
                     </Card>

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Users, TrendingUp, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { timeToMinutes, calculateDurationMinutes } from '@/utils/timeslotUtils';
+import { useTeamRoles } from '@/components/settings/TeamRoleSettings';
 
 /**
  * Berechnet die effektive Arbeitszeit unter Berücksichtigung von Überlappungen
@@ -88,11 +89,14 @@ export default function WorkingTimeReport() {
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
 
+    // Dynamische Statistikausschluss-Rollen
+    const { statisticsExcludedRoles } = useTeamRoles();
+
     // Fetch all required data
     const { data: doctors = [], isLoading: isLoadingDocs } = useQuery({
-        queryKey: ['doctors'],
+        queryKey: ['doctors', statisticsExcludedRoles],
         queryFn: () => db.Doctor.list(),
-        select: (data) => data.filter(d => d.role !== 'Nicht-Radiologe').sort((a, b) => (a.order || 0) - (b.order || 0)),
+        select: (data) => data.filter(d => !statisticsExcludedRoles.includes(d.role)).sort((a, b) => (a.order || 0) - (b.order || 0)),
     });
 
     const { data: workplaces = [], isLoading: isLoadingWorkplaces } = useQuery({

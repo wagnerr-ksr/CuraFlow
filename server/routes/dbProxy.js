@@ -121,26 +121,40 @@ const ensureTeamRoleTable = async (dbPool, cacheKey) => {
         name VARCHAR(100) NOT NULL UNIQUE,
         priority INT NOT NULL DEFAULT 99,
         is_specialist BOOLEAN NOT NULL DEFAULT FALSE,
+        can_do_foreground_duty BOOLEAN NOT NULL DEFAULT TRUE,
+        can_do_background_duty BOOLEAN NOT NULL DEFAULT FALSE,
+        excluded_from_statistics BOOLEAN NOT NULL DEFAULT FALSE,
+        description VARCHAR(255) DEFAULT NULL,
         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
     
+    // Add new columns if table exists but lacks them (migration)
+    try {
+      await dbPool.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS can_do_foreground_duty BOOLEAN NOT NULL DEFAULT TRUE`);
+      await dbPool.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS can_do_background_duty BOOLEAN NOT NULL DEFAULT FALSE`);
+      await dbPool.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS excluded_from_statistics BOOLEAN NOT NULL DEFAULT FALSE`);
+      await dbPool.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS description VARCHAR(255) DEFAULT NULL`);
+    } catch (alterErr) {
+      // Columns might already exist
+    }
+    
     // Seed defaults if empty
     const [existing] = await dbPool.execute('SELECT COUNT(*) as cnt FROM TeamRole');
     if (existing[0].cnt === 0) {
       const defaultRoles = [
-        { name: 'Chefarzt', priority: 0, is_specialist: true },
-        { name: 'Oberarzt', priority: 1, is_specialist: true },
-        { name: 'Facharzt', priority: 2, is_specialist: true },
-        { name: 'Assistenzarzt', priority: 3, is_specialist: false },
-        { name: 'Nicht-Radiologe', priority: 4, is_specialist: false },
+        { name: 'Chefarzt', priority: 0, is_specialist: true, can_do_foreground_duty: false, can_do_background_duty: true, excluded_from_statistics: false, description: 'Oberste Führungsebene' },
+        { name: 'Oberarzt', priority: 1, is_specialist: true, can_do_foreground_duty: false, can_do_background_duty: true, excluded_from_statistics: false, description: 'Kann Hintergrunddienste übernehmen' },
+        { name: 'Facharzt', priority: 2, is_specialist: true, can_do_foreground_duty: true, can_do_background_duty: true, excluded_from_statistics: false, description: 'Kann alle Dienste übernehmen' },
+        { name: 'Assistenzarzt', priority: 3, is_specialist: false, can_do_foreground_duty: true, can_do_background_duty: false, excluded_from_statistics: false, description: 'Kann Vordergrunddienste übernehmen' },
+        { name: 'Nicht-Radiologe', priority: 4, is_specialist: false, can_do_foreground_duty: false, can_do_background_duty: false, excluded_from_statistics: true, description: 'Wird in Statistiken nicht gezählt' },
       ];
       for (const role of defaultRoles) {
         const id = crypto.randomUUID();
         await dbPool.execute(
-          'INSERT IGNORE INTO TeamRole (id, name, priority, is_specialist) VALUES (?, ?, ?, ?)',
-          [id, role.name, role.priority, role.is_specialist]
+          'INSERT IGNORE INTO TeamRole (id, name, priority, is_specialist, can_do_foreground_duty, can_do_background_duty, excluded_from_statistics, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [id, role.name, role.priority, role.is_specialist, role.can_do_foreground_duty, role.can_do_background_duty, role.excluded_from_statistics, role.description]
         );
       }
       console.log('✅ TeamRole table created and seeded for tenant');

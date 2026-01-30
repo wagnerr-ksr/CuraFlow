@@ -28,11 +28,11 @@ import {
 
 // Standard-Rollen die initial angelegt werden
 export const DEFAULT_TEAM_ROLES = [
-    { name: "Chefarzt", priority: 0, is_specialist: true },
-    { name: "Oberarzt", priority: 1, is_specialist: true },
-    { name: "Facharzt", priority: 2, is_specialist: true },
-    { name: "Assistenzarzt", priority: 3, is_specialist: false },
-    { name: "Nicht-Radiologe", priority: 4, is_specialist: false },
+    { name: "Chefarzt", priority: 0, is_specialist: true, can_do_foreground_duty: false, can_do_background_duty: true, excluded_from_statistics: false, description: "Oberste Führungsebene" },
+    { name: "Oberarzt", priority: 1, is_specialist: true, can_do_foreground_duty: false, can_do_background_duty: true, excluded_from_statistics: false, description: "Kann Hintergrunddienste übernehmen" },
+    { name: "Facharzt", priority: 2, is_specialist: true, can_do_foreground_duty: true, can_do_background_duty: true, excluded_from_statistics: false, description: "Kann alle Dienste übernehmen" },
+    { name: "Assistenzarzt", priority: 3, is_specialist: false, can_do_foreground_duty: true, can_do_background_duty: false, excluded_from_statistics: false, description: "Kann Vordergrunddienste übernehmen" },
+    { name: "Nicht-Radiologe", priority: 4, is_specialist: false, can_do_foreground_duty: false, can_do_background_duty: false, excluded_from_statistics: true, description: "Wird in Statistiken nicht gezählt" },
 ];
 
 // Hook zum Laden der Team-Rollen mit Fallback auf Defaults
@@ -59,12 +59,39 @@ export function useTeamRoles() {
 
     // Specialist-Rollen für Validierung
     const specialistRoles = teamRoles.filter(r => r.is_specialist).map(r => r.name);
+    
+    // Berechtigungsbasierte Rollen-Listen
+    const foregroundDutyRoles = teamRoles.filter(r => r.can_do_foreground_duty !== false).map(r => r.name);
+    const backgroundDutyRoles = teamRoles.filter(r => r.can_do_background_duty === true).map(r => r.name);
+    const statisticsExcludedRoles = teamRoles.filter(r => r.excluded_from_statistics === true).map(r => r.name);
+
+    // Helper-Funktion um Berechtigungen zu prüfen
+    const canDoForegroundDuty = (roleName) => {
+        const role = teamRoles.find(r => r.name === roleName);
+        return role ? role.can_do_foreground_duty !== false : true;
+    };
+
+    const canDoBackgroundDuty = (roleName) => {
+        const role = teamRoles.find(r => r.name === roleName);
+        return role ? role.can_do_background_duty === true : false;
+    };
+
+    const isExcludedFromStatistics = (roleName) => {
+        const role = teamRoles.find(r => r.name === roleName);
+        return role ? role.excluded_from_statistics === true : false;
+    };
 
     return { 
         teamRoles, 
         roleNames, 
         rolePriority, 
         specialistRoles,
+        foregroundDutyRoles,
+        backgroundDutyRoles,
+        statisticsExcludedRoles,
+        canDoForegroundDuty,
+        canDoBackgroundDuty,
+        isExcludedFromStatistics,
         isLoading, 
         refetch 
     };
@@ -95,6 +122,10 @@ function RoleEditDialog({ role, open, onOpenChange, onSave }) {
     const [formData, setFormData] = useState({
         name: role?.name || '',
         is_specialist: role?.is_specialist || false,
+        can_do_foreground_duty: role?.can_do_foreground_duty ?? true,
+        can_do_background_duty: role?.can_do_background_duty ?? false,
+        excluded_from_statistics: role?.excluded_from_statistics ?? false,
+        description: role?.description || '',
     });
 
     useEffect(() => {
@@ -102,9 +133,20 @@ function RoleEditDialog({ role, open, onOpenChange, onSave }) {
             setFormData({
                 name: role.name || '',
                 is_specialist: role.is_specialist || false,
+                can_do_foreground_duty: role.can_do_foreground_duty ?? true,
+                can_do_background_duty: role.can_do_background_duty ?? false,
+                excluded_from_statistics: role.excluded_from_statistics ?? false,
+                description: role.description || '',
             });
         } else {
-            setFormData({ name: '', is_specialist: false });
+            setFormData({ 
+                name: '', 
+                is_specialist: false,
+                can_do_foreground_duty: true,
+                can_do_background_duty: false,
+                excluded_from_statistics: false,
+                description: '',
+            });
         }
     }, [role, open]);
 
@@ -117,13 +159,13 @@ function RoleEditDialog({ role, open, onOpenChange, onSave }) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[400px]">
+            <DialogContent className="sm:max-w-[450px]">
                 <DialogHeader>
                     <DialogTitle>
                         {role ? "Funktion bearbeiten" : "Neue Funktion hinzufügen"}
                     </DialogTitle>
                     <DialogDescription>
-                        Funktionen definieren die Hierarchie und Qualifikation im Team.
+                        Funktionen definieren die Hierarchie und Berechtigungen im Team.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
@@ -137,19 +179,71 @@ function RoleEditDialog({ role, open, onOpenChange, onSave }) {
                             required
                         />
                     </div>
-                    <div className="flex items-center gap-3">
-                        <input
-                            type="checkbox"
-                            id="isSpecialist"
-                            checked={formData.is_specialist}
-                            onChange={(e) => setFormData({ ...formData, is_specialist: e.target.checked })}
-                            className="h-4 w-4 rounded border-slate-300"
+                    <div className="grid gap-2">
+                        <Label htmlFor="roleDescription">Beschreibung (optional)</Label>
+                        <Input
+                            id="roleDescription"
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            placeholder="z.B. Kann Hintergrunddienste übernehmen"
                         />
-                        <Label htmlFor="isSpecialist" className="text-sm">
-                            Gilt als Facharzt-Qualifikation (für Besetzungsprüfung)
-                        </Label>
                     </div>
-                    <DialogFooter>
+                    
+                    <div className="border-t pt-4 mt-2">
+                        <Label className="text-sm font-semibold text-slate-700 mb-3 block">Berechtigungen</Label>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="isSpecialist"
+                                    checked={formData.is_specialist}
+                                    onChange={(e) => setFormData({ ...formData, is_specialist: e.target.checked })}
+                                    className="h-4 w-4 rounded border-slate-300"
+                                />
+                                <Label htmlFor="isSpecialist" className="text-sm font-normal">
+                                    Gilt als Facharzt-Qualifikation
+                                </Label>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="canDoForeground"
+                                    checked={formData.can_do_foreground_duty}
+                                    onChange={(e) => setFormData({ ...formData, can_do_foreground_duty: e.target.checked })}
+                                    className="h-4 w-4 rounded border-slate-300"
+                                />
+                                <Label htmlFor="canDoForeground" className="text-sm font-normal">
+                                    Kann Vordergrunddienste übernehmen
+                                </Label>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="canDoBackground"
+                                    checked={formData.can_do_background_duty}
+                                    onChange={(e) => setFormData({ ...formData, can_do_background_duty: e.target.checked })}
+                                    className="h-4 w-4 rounded border-slate-300"
+                                />
+                                <Label htmlFor="canDoBackground" className="text-sm font-normal">
+                                    Kann Hintergrunddienste übernehmen
+                                </Label>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="excludedFromStats"
+                                    checked={formData.excluded_from_statistics}
+                                    onChange={(e) => setFormData({ ...formData, excluded_from_statistics: e.target.checked })}
+                                    className="h-4 w-4 rounded border-slate-300"
+                                />
+                                <Label htmlFor="excludedFromStats" className="text-sm font-normal">
+                                    Von Statistiken ausschließen
+                                </Label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <DialogFooter className="mt-4">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                             Abbrechen
                         </Button>
@@ -288,11 +382,31 @@ export default function TeamRoleSettings() {
                                                                     <GripVertical className="w-4 h-4" />
                                                                 </div>
                                                                 <div className="flex-1">
-                                                                    <span className="font-medium">{role.name}</span>
-                                                                    {role.is_specialist && (
-                                                                        <Badge variant="secondary" className="ml-2 text-xs">
-                                                                            Facharzt
-                                                                        </Badge>
+                                                                    <div className="flex items-center flex-wrap gap-1">
+                                                                        <span className="font-medium">{role.name}</span>
+                                                                        {role.is_specialist && (
+                                                                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                                                                Facharzt
+                                                                            </Badge>
+                                                                        )}
+                                                                        {role.can_do_foreground_duty && (
+                                                                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                                                                VG
+                                                                            </Badge>
+                                                                        )}
+                                                                        {role.can_do_background_duty && (
+                                                                            <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
+                                                                                HG
+                                                                            </Badge>
+                                                                        )}
+                                                                        {role.excluded_from_statistics && (
+                                                                            <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-500">
+                                                                                Kein Stat
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    {role.description && (
+                                                                        <p className="text-xs text-slate-500 mt-0.5">{role.description}</p>
                                                                     )}
                                                                 </div>
                                                                 <div className="flex gap-1">

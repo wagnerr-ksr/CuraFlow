@@ -103,14 +103,14 @@ export default function ServiceStaffingPage() {
     const relevantPositions = serviceTypes.map(t => t.id);
 
     // Dynamische Facharzt-Rollen aus DB laden
-    const { specialistRoles } = useTeamRoles();
+    const { foregroundDutyRoles, backgroundDutyRoles, statisticsExcludedRoles } = useTeamRoles();
 
-    // ALLOWED_ROLES dynamisch aufbauen - Fachärzte für Hintergrund-Dienste
+    // ALLOWED_ROLES dynamisch aufbauen basierend auf Rollenberechtigungen
     const ALLOWED_ROLES = useMemo(() => ({
-        'Dienst Vordergrund': ['Assistenzarzt', ...specialistRoles.filter(r => r !== 'Chefarzt' && r !== 'Oberarzt')],
-        'Dienst Hintergrund': specialistRoles,
-        'Onko-Konsil': specialistRoles
-    }), [specialistRoles]);
+        'Dienst Vordergrund': foregroundDutyRoles,
+        'Dienst Hintergrund': backgroundDutyRoles,
+        'Onko-Konsil': backgroundDutyRoles
+    }), [foregroundDutyRoles, backgroundDutyRoles]);
 
     const absencesByDate = useMemo(() => {
         const map = {};
@@ -409,15 +409,15 @@ export default function ServiceStaffingPage() {
                                         const dateStr = format(day, 'yyyy-MM-dd');
                                         const absentIds = absencesByDate[dateStr] || new Set();
                                         const availableDoctors = doctors.filter(doc => {
-                                            // Always exclude Non-Radiologists
-                                            if (doc.role === 'Nicht-Radiologe') return false;
+                                            // Exclude roles that are excluded from statistics (e.g. Nicht-Radiologe)
+                                            if (statisticsExcludedRoles.includes(doc.role)) return false;
                                             
                                             // Check absence (allow if currently assigned to this slot)
                                             if (absentIds.has(doc.id) && doc.id !== assignedDoctorId) return false;
 
                                             // Check role restrictions for specific services
                                             const allowedRoles = ALLOWED_ROLES[type.id];
-                                            // Default: Allow all except Nicht-Radiologe (already filtered)
+                                            // Default: Allow all except excluded roles (already filtered)
                                             // For dynamic services, we might want config, but for now allow all doctors
                                             if (allowedRoles && !allowedRoles.includes(doc.role)) return false;
 

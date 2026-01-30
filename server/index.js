@@ -254,6 +254,10 @@ async function ensureTablesExist() {
         name VARCHAR(100) NOT NULL UNIQUE,
         priority INT NOT NULL DEFAULT 99,
         is_specialist BOOLEAN NOT NULL DEFAULT FALSE,
+        can_do_foreground_duty BOOLEAN NOT NULL DEFAULT TRUE,
+        can_do_background_duty BOOLEAN NOT NULL DEFAULT FALSE,
+        excluded_from_statistics BOOLEAN NOT NULL DEFAULT FALSE,
+        description VARCHAR(255) DEFAULT NULL,
         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`
@@ -264,21 +268,33 @@ async function ensureTablesExist() {
     try {
       await db.execute(table.sql);
       
+      // Add new columns if they don't exist (migration for existing DBs)
+      if (table.name === 'TeamRole') {
+        try {
+          await db.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS can_do_foreground_duty BOOLEAN NOT NULL DEFAULT TRUE`);
+          await db.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS can_do_background_duty BOOLEAN NOT NULL DEFAULT FALSE`);
+          await db.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS excluded_from_statistics BOOLEAN NOT NULL DEFAULT FALSE`);
+          await db.execute(`ALTER TABLE TeamRole ADD COLUMN IF NOT EXISTS description VARCHAR(255) DEFAULT NULL`);
+        } catch (alterErr) {
+          // Columns might already exist or syntax not supported
+        }
+      }
+      
       // Seed default data for TeamRole
       if (table.name === 'TeamRole') {
         const [existing] = await db.execute('SELECT COUNT(*) as cnt FROM TeamRole');
         if (existing[0].cnt === 0) {
           const defaultRoles = [
-            { id: crypto.randomUUID(), name: 'Chefarzt', priority: 0, is_specialist: true },
-            { id: crypto.randomUUID(), name: 'Oberarzt', priority: 1, is_specialist: true },
-            { id: crypto.randomUUID(), name: 'Facharzt', priority: 2, is_specialist: true },
-            { id: crypto.randomUUID(), name: 'Assistenzarzt', priority: 3, is_specialist: false },
-            { id: crypto.randomUUID(), name: 'Nicht-Radiologe', priority: 4, is_specialist: false },
+            { id: crypto.randomUUID(), name: 'Chefarzt', priority: 0, is_specialist: true, can_do_foreground_duty: false, can_do_background_duty: true, excluded_from_statistics: false, description: 'Oberste Führungsebene' },
+            { id: crypto.randomUUID(), name: 'Oberarzt', priority: 1, is_specialist: true, can_do_foreground_duty: false, can_do_background_duty: true, excluded_from_statistics: false, description: 'Kann Hintergrunddienste übernehmen' },
+            { id: crypto.randomUUID(), name: 'Facharzt', priority: 2, is_specialist: true, can_do_foreground_duty: true, can_do_background_duty: true, excluded_from_statistics: false, description: 'Kann alle Dienste übernehmen' },
+            { id: crypto.randomUUID(), name: 'Assistenzarzt', priority: 3, is_specialist: false, can_do_foreground_duty: true, can_do_background_duty: false, excluded_from_statistics: false, description: 'Kann Vordergrunddienste übernehmen' },
+            { id: crypto.randomUUID(), name: 'Nicht-Radiologe', priority: 4, is_specialist: false, can_do_foreground_duty: false, can_do_background_duty: false, excluded_from_statistics: true, description: 'Wird in Statistiken nicht gezählt' },
           ];
           for (const role of defaultRoles) {
             await db.execute(
-              'INSERT IGNORE INTO TeamRole (id, name, priority, is_specialist) VALUES (?, ?, ?, ?)',
-              [role.id, role.name, role.priority, role.is_specialist]
+              'INSERT IGNORE INTO TeamRole (id, name, priority, is_specialist, can_do_foreground_duty, can_do_background_duty, excluded_from_statistics, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+              [role.id, role.name, role.priority, role.is_specialist, role.can_do_foreground_duty, role.can_do_background_duty, role.excluded_from_statistics, role.description]
             );
           }
           console.log('✅ TeamRole table seeded with defaults');

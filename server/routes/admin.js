@@ -646,9 +646,44 @@ router.post('/run-timeslot-migrations', async (req, res, next) => {
       }
     }
 
+    // Migration 8: Add permission columns to TeamRole for dynamic role permissions
+    try {
+      const alterStatements = [
+        `ALTER TABLE TeamRole ADD COLUMN can_do_foreground_duty BOOLEAN NOT NULL DEFAULT TRUE`,
+        `ALTER TABLE TeamRole ADD COLUMN can_do_background_duty BOOLEAN NOT NULL DEFAULT FALSE`,
+        `ALTER TABLE TeamRole ADD COLUMN excluded_from_statistics BOOLEAN NOT NULL DEFAULT FALSE`,
+        `ALTER TABLE TeamRole ADD COLUMN description VARCHAR(255) DEFAULT NULL`
+      ];
+      
+      let addedColumns = 0;
+      for (const stmt of alterStatements) {
+        try {
+          await dbPool.execute(stmt);
+          addedColumns++;
+        } catch (alterErr) {
+          // Column might already exist
+        }
+      }
+      
+      if (addedColumns > 0) {
+        // Update existing roles with default permissions
+        await dbPool.execute(`UPDATE TeamRole SET can_do_foreground_duty = FALSE, can_do_background_duty = TRUE, description = 'Oberste Führungsebene' WHERE name = 'Chefarzt' AND description IS NULL`);
+        await dbPool.execute(`UPDATE TeamRole SET can_do_foreground_duty = FALSE, can_do_background_duty = TRUE, description = 'Kann Hintergrunddienste übernehmen' WHERE name = 'Oberarzt' AND description IS NULL`);
+        await dbPool.execute(`UPDATE TeamRole SET can_do_foreground_duty = TRUE, can_do_background_duty = TRUE, description = 'Kann alle Dienste übernehmen' WHERE name = 'Facharzt' AND description IS NULL`);
+        await dbPool.execute(`UPDATE TeamRole SET can_do_foreground_duty = TRUE, can_do_background_duty = FALSE, description = 'Kann Vordergrunddienste übernehmen' WHERE name = 'Assistenzarzt' AND description IS NULL`);
+        await dbPool.execute(`UPDATE TeamRole SET can_do_foreground_duty = FALSE, can_do_background_duty = FALSE, excluded_from_statistics = TRUE, description = 'Wird in Statistiken nicht gezählt' WHERE name = 'Nicht-Radiologe' AND description IS NULL`);
+        
+        results.push({ migration: 'add_team_role_permissions', status: 'success', message: `${addedColumns} columns added` });
+      } else {
+        results.push({ migration: 'add_team_role_permissions', status: 'skipped', reason: 'Columns already exist' });
+      }
+    } catch (err) {
+      results.push({ migration: 'add_team_role_permissions', status: 'error', error: err.message });
+    }
+
     // Clear column cache for affected tables so new columns are recognized
     const cacheKey = req.headers['x-db-token'] || 'default';
-    clearColumnsCache(['Workplace', 'WorkplaceTimeslot', 'ShiftEntry', 'TimeslotTemplate'], cacheKey);
+    clearColumnsCache(['Workplace', 'WorkplaceTimeslot', 'ShiftEntry', 'TimeslotTemplate', 'TeamRole'], cacheKey);
 
     console.log(`[Timeslot Migrations] Executed by ${req.user?.email}:`, results);
 
@@ -731,6 +766,27 @@ router.get('/timeslot-migration-status', async (req, res, next) => {
       migrations.push({
         name: 'shiftentry_columns',
         description: 'ShiftEntry-Spalten prüfen',
+        applied: false,
+        error: err.message
+      });
+    }
+
+    // Check TeamRole columns for permissions
+    try {
+      const [columns] = await dbPool.execute(`SHOW COLUMNS FROM TeamRole`);
+      const columnNames = columns.map(c => c.Field);
+      
+      migrations.push({
+        name: 'add_team_role_permissions',
+        description: 'Dynamische Berechtigungen für Team-Rollen (VG/HG-Dienste, Statistik-Ausschluss)',
+        applied: columnNames.includes('can_do_foreground_duty') && 
+                 columnNames.includes('can_do_background_duty') && 
+                 columnNames.includes('excluded_from_statistics')
+      });
+    } catch (err) {
+      migrations.push({
+        name: 'teamrole_columns',
+        description: 'TeamRole-Spalten prüfen',
         applied: false,
         error: err.message
       });
