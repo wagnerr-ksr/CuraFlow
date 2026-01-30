@@ -60,12 +60,19 @@ export function useTeamRoles() {
     // Specialist-Rollen für Validierung
     const specialistRoles = teamRoles.filter(r => r.is_specialist).map(r => r.name);
     
-    // Berechtigungsbasierte Rollen-Listen
+    // Berechtigungsbasierte Rollen-Listen mit Fallback für alte DBs ohne Migration
+    // Fallback: Wenn can_do_foreground_duty undefined ist, erlauben (altes Verhalten)
     const foregroundDutyRoles = teamRoles.filter(r => r.can_do_foreground_duty !== false).map(r => r.name);
-    const backgroundDutyRoles = teamRoles.filter(r => r.can_do_background_duty === true).map(r => r.name);
-    const statisticsExcludedRoles = teamRoles.filter(r => r.excluded_from_statistics === true).map(r => r.name);
+    // Fallback: Wenn can_do_background_duty undefined ist, auf is_specialist zurückfallen (altes Verhalten)
+    const backgroundDutyRoles = teamRoles.filter(r => 
+        r.can_do_background_duty === true || (r.can_do_background_duty === undefined && r.is_specialist)
+    ).map(r => r.name);
+    // Fallback: Wenn excluded_from_statistics undefined ist, prüfe auf Nicht-Radiologe (altes Verhalten)
+    const statisticsExcludedRoles = teamRoles.filter(r => 
+        r.excluded_from_statistics === true || (r.excluded_from_statistics === undefined && r.name === 'Nicht-Radiologe')
+    ).map(r => r.name);
 
-    // Helper-Funktion um Berechtigungen zu prüfen
+    // Helper-Funktion um Berechtigungen zu prüfen (mit Fallback für alte DBs)
     const canDoForegroundDuty = (roleName) => {
         const role = teamRoles.find(r => r.name === roleName);
         return role ? role.can_do_foreground_duty !== false : true;
@@ -73,12 +80,18 @@ export function useTeamRoles() {
 
     const canDoBackgroundDuty = (roleName) => {
         const role = teamRoles.find(r => r.name === roleName);
-        return role ? role.can_do_background_duty === true : false;
+        if (!role) return false;
+        // Fallback auf is_specialist wenn can_do_background_duty nicht gesetzt ist
+        if (role.can_do_background_duty === undefined) return role.is_specialist === true;
+        return role.can_do_background_duty === true;
     };
 
     const isExcludedFromStatistics = (roleName) => {
         const role = teamRoles.find(r => r.name === roleName);
-        return role ? role.excluded_from_statistics === true : false;
+        if (!role) return false;
+        // Fallback auf Nicht-Radiologe wenn excluded_from_statistics nicht gesetzt ist
+        if (role.excluded_from_statistics === undefined) return role.name === 'Nicht-Radiologe';
+        return role.excluded_from_statistics === true;
     };
 
     return { 
