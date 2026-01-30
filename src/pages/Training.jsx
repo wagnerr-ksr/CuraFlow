@@ -299,30 +299,22 @@ export default function TrainingPage() {
           .sort((a, b) => (a.order || 0) - (b.order || 0));
 
       let mods = [];
-      // If no dynamic workplaces defined yet, fallback to defaults
-      if (rotationWorkplaces.length === 0) {
-          mods = [
-            { id: 'CT', label: 'CT', color: 'bg-blue-500' },
-            { id: 'MRT', label: 'MRT', color: 'bg-indigo-500' },
-            { id: 'Sonographie', label: 'Sonographie', color: 'bg-green-500' },
-            { id: 'Mammographie', label: 'Mammographie', color: 'bg-pink-500' },
-            { id: 'Angiographie', label: 'Angiographie', color: 'bg-red-500' },
-            { id: 'DL/konv. Rö', label: 'DL/konv. Rö', color: 'bg-slate-500' },
-          ];
-      } else {
+      // Dynamische Modalitäten aus der aktuellen Mandanten-Datenbank
+      // Kein Fallback mehr auf hardcodierte Werte
+      if (rotationWorkplaces.length > 0) {
           mods = rotationWorkplaces.map((w, i) => ({
               id: w.name,
               label: w.name,
               color: colorPalette[i % colorPalette.length]
           }));
+          
+          // Add Delete Option only if we have modalities
+          mods.push({ 
+              id: 'DELETE', 
+              label: 'Löschen', 
+              color: 'bg-slate-100 text-slate-900 border-slate-200 hover:bg-red-50 hover:text-red-600' 
+          });
       }
-
-      // Add Delete Option
-      mods.push({ 
-          id: 'DELETE', 
-          label: 'Löschen', 
-          color: 'bg-slate-100 text-slate-900 border-slate-200 hover:bg-red-50 hover:text-red-600' 
-      });
       
       return mods;
   }, [workplaces]);
@@ -388,18 +380,24 @@ export default function TrainingPage() {
       </div>
       
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {modalities.map(type => (
-              <Button
-                  key={type.id}
-                  variant={activeModality === type.id ? "default" : "outline"}
-                  onClick={() => !isReadOnly && setActiveModality(type.id)}
-                  className={`gap-2 shrink-0 ${activeModality === type.id ? type.color + ' hover:' + type.color + '/90 border-transparent' : 'hover:bg-slate-50'} ${isReadOnly ? 'cursor-default opacity-100 hover:bg-transparent' : ''}`}
-                  disabled={isReadOnly && activeModality !== type.id}
-              >
-                  {type.id === 'DELETE' ? <Eraser className="w-4 h-4" /> : <div className={`w-3 h-3 rounded-full ${type.color}`} />}
-                  {type.label}
-              </Button>
-          ))}
+          {modalities.length > 0 ? (
+              modalities.map(type => (
+                  <Button
+                      key={type.id}
+                      variant={activeModality === type.id ? "default" : "outline"}
+                      onClick={() => !isReadOnly && setActiveModality(type.id)}
+                      className={`gap-2 shrink-0 ${activeModality === type.id ? type.color + ' hover:' + type.color + '/90 border-transparent' : 'hover:bg-slate-50'} ${isReadOnly ? 'cursor-default opacity-100 hover:bg-transparent' : ''}`}
+                      disabled={isReadOnly && activeModality !== type.id}
+                  >
+                      {type.id === 'DELETE' ? <Eraser className="w-4 h-4" /> : <div className={`w-3 h-3 rounded-full ${type.color}`} />}
+                      {type.label}
+                  </Button>
+              ))
+          ) : (
+              <div className="text-slate-500 italic py-2">
+                  Keine Rotationen konfiguriert. Bitte fügen Sie in den Einstellungen unter "Arbeitsplätze" Einträge in der Kategorie "Rotationen" hinzu.
+              </div>
+          )}
       </div>
 
       {selectedDoctor ? (

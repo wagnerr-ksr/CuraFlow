@@ -254,7 +254,27 @@ export default function ScheduleBoard() {
       }
   }, [collapsedSections, user]);
 
+  // State für eingeklappte Timeslot-Gruppen (Arbeitsplatz-Namen)
+  const [collapsedTimeslotGroups, setCollapsedTimeslotGroups] = useState(() => {
+      try {
+          const saved = localStorage.getItem('radioplan_collapsedTimeslotGroups');
+          return saved ? JSON.parse(saved) : [];
+      } catch {
+          return [];
+      }
+  });
 
+  useEffect(() => {
+      localStorage.setItem('radioplan_collapsedTimeslotGroups', JSON.stringify(collapsedTimeslotGroups));
+  }, [collapsedTimeslotGroups]);
+
+  const toggleTimeslotGroup = (workplaceName) => {
+      setCollapsedTimeslotGroups(prev => 
+          prev.includes(workplaceName) 
+              ? prev.filter(n => n !== workplaceName) 
+              : [...prev, workplaceName]
+      );
+  };
 
   useEffect(() => {
       localStorage.setItem('radioplan_gridFontSize', JSON.stringify(gridFontSize));
@@ -366,7 +386,19 @@ export default function ScheduleBoard() {
                       .sort((a, b) => (a.order || 0) - (b.order || 0));
                   
                   if (wpTimeslots.length > 0) {
-                      // Füge eine Zeile pro Timeslot hinzu
+                      // Zuerst: Header-Zeile für die Gruppe (zum Ein-/Ausklappen)
+                      rows.push({
+                          name: wp.name,
+                          displayName: wp.name,
+                          timeslotId: null,
+                          timeslotLabel: null,
+                          isTimeslotRow: false,
+                          isTimeslotGroupHeader: true,
+                          timeslotCount: wpTimeslots.length,
+                          allTimeslotIds: wpTimeslots.map(t => t.id)
+                      });
+                      
+                      // Dann: Eine Zeile pro Timeslot (werden nur angezeigt wenn ausgeklappt)
                       for (const ts of wpTimeslots) {
                           rows.push({
                               name: wp.name,
@@ -374,17 +406,19 @@ export default function ScheduleBoard() {
                               timeslotId: ts.id,
                               timeslotLabel: ts.label,
                               isTimeslotRow: true,
+                              isTimeslotGroupHeader: false,
                               startTime: ts.start_time,
-                              endTime: ts.end_time
+                              endTime: ts.end_time,
+                              parentWorkplace: wp.name
                           });
                       }
                   } else {
                       // Timeslots aktiviert aber noch keine definiert
-                      rows.push({ name: wp.name, displayName: wp.name, timeslotId: null, isTimeslotRow: false });
+                      rows.push({ name: wp.name, displayName: wp.name, timeslotId: null, isTimeslotRow: false, isTimeslotGroupHeader: false });
                   }
               } else {
                   // Standard: Eine Zeile
-                  rows.push({ name: wp.name, displayName: wp.name, timeslotId: null, isTimeslotRow: false });
+                  rows.push({ name: wp.name, displayName: wp.name, timeslotId: null, isTimeslotRow: false, isTimeslotGroupHeader: false });
               }
           }
           return rows;
@@ -2192,7 +2226,7 @@ export default function ScheduleBoard() {
     }
   };
 
-  const renderCellShifts = useMemo(() => (date, rowName, isSectionFullWidth, timeslotId = null) => {
+  const renderCellShifts = useMemo(() => (date, rowName, isSectionFullWidth, timeslotId = null, allTimeslotIds = null) => {
     // Wait for color settings to load
     if (isLoadingColors) return null;
     if (!isValid(date)) return null;
@@ -2201,10 +2235,18 @@ export default function ScheduleBoard() {
     // Filter shifts by position and optionally by timeslot_id
     const shifts = currentWeekShifts.filter(s => {
       if (s.date !== dateStr || s.position !== rowName) return false;
-      // Wenn eine timeslotId angegeben ist, nur Shifts mit dieser ID anzeigen
+      
+      // Fall 1: Eingeklappte Gruppe - zeige ALLE Shifts aus allen Timeslots
+      if (allTimeslotIds && allTimeslotIds.length > 0) {
+        return allTimeslotIds.includes(s.timeslot_id) || !s.timeslot_id;
+      }
+      
+      // Fall 2: Spezifische timeslotId angegeben
       if (timeslotId !== null) {
         return s.timeslot_id === timeslotId;
       }
+      
+      // Fall 3: Normale Zeile ohne Timeslot
       // Wenn keine timeslotId angegeben ist (normale Zeile), nur Shifts ohne timeslot_id anzeigen
       // oder alle anzeigen, falls der Arbeitsplatz keine Timeslots aktiviert hat
       const workplace = workplaces.find(w => w.name === rowName);
@@ -2568,12 +2610,19 @@ export default function ScheduleBoard() {
               </div>
 
               {sections.map((section, sIdx) => {
-                // rows sind jetzt Objekte mit { name, displayName, timeslotId, isTimeslotRow }
+                // rows sind jetzt Objekte mit { name, displayName, timeslotId, isTimeslotRow, isTimeslotGroupHeader }
                 // Für Rückwärtskompatibilität: Falls string, in Objekt konvertieren
                 const normalizedRows = section.rows.map(r => 
-                    typeof r === 'string' ? { name: r, displayName: r, timeslotId: null, isTimeslotRow: false } : r
+                    typeof r === 'string' ? { name: r, displayName: r, timeslotId: null, isTimeslotRow: false, isTimeslotGroupHeader: false } : r
                 );
-                const visibleRows = normalizedRows.filter(r => !hiddenRows.includes(r.name));
+                
+                // Filter: Versteckte Zeilen ausblenden + Timeslot-Zeilen ausblenden wenn Gruppe eingeklappt
+                const visibleRows = normalizedRows.filter(r => {
+                    if (hiddenRows.includes(r.name)) return false;
+                    // Timeslot-Unterzeilen ausblenden wenn die Gruppe eingeklappt ist
+                    if (r.isTimeslotRow && collapsedTimeslotGroups.includes(r.name)) return false;
+                    return true;
+                });
                 if (visibleRows.length === 0) return null;
                 
                 const isCollapsed = collapsedSections.includes(section.title);
@@ -2599,22 +2648,33 @@ export default function ScheduleBoard() {
                         const rowName = rowObj.name;
                         const rowDisplayName = rowObj.displayName || rowName;
                         const rowTimeslotId = rowObj.timeslotId;
+                        const isGroupHeader = rowObj.isTimeslotGroupHeader;
+                        const isGroupCollapsed = collapsedTimeslotGroups.includes(rowName);
                         const rowStyle = getRowStyle(rowName, customStyle);
                         
                         return (
                         <div key={`${sIdx}-${rowDisplayName}-${rowTimeslotId || 'full'}`} className={`grid ${viewMode === 'day' ? 'grid-cols-[200px_1fr]' : 'grid-cols-[200px_repeat(7,1fr)]'} border-b border-slate-200 ${(draggingDoctorId || draggingShiftId) ? '' : 'hover:bg-slate-50/50'} transition-colors group`}>
-                            <Droppable droppableId={`rowHeader__${rowName}${rowTimeslotId ? '__' + rowTimeslotId : ''}`} isDropDisabled={isReadOnly}>
+                            <Droppable droppableId={`rowHeader__${rowName}${rowTimeslotId ? '__' + rowTimeslotId : ''}`} isDropDisabled={isReadOnly || isGroupHeader}>
                                 {(provided, snapshot) => (
                                     <div 
                                         ref={provided.innerRef}
                                         {...provided.droppableProps}
-                                        className={`p-2 text-sm font-medium border-r border-slate-200 flex items-center justify-between transition-colors ${!customStyle ? section.headerColor : ''} ${snapshot.isDraggingOver ? 'ring-2 ring-inset ring-indigo-400 bg-indigo-50' : ''}`}
+                                        className={`p-2 text-sm font-medium border-r border-slate-200 flex items-center justify-between transition-colors ${!customStyle ? section.headerColor : ''} ${snapshot.isDraggingOver && !isGroupHeader ? 'ring-2 ring-inset ring-indigo-400 bg-indigo-50' : ''} ${isGroupHeader ? 'cursor-pointer' : ''}`}
                                         style={customStyle ? customStyle.header : {}}
+                                        onClick={isGroupHeader ? () => toggleTimeslotGroup(rowName) : undefined}
                                     >
                                         <div className="flex flex-col min-w-0">
-                                            <span className="truncate" title={rowDisplayName}>
+                                            <span className="truncate flex items-center gap-1" title={rowDisplayName}>
+                                                {isGroupHeader && (
+                                                    <span className="text-slate-500">
+                                                        {isGroupCollapsed ? <ChevronRight className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />}
+                                                    </span>
+                                                )}
                                                 {rowObj.isTimeslotRow && <span className="text-slate-400 mr-1">↳</span>}
                                                 {rowDisplayName}
+                                                {isGroupHeader && rowObj.timeslotCount && (
+                                                    <span className="text-[10px] text-slate-400 ml-1">({rowObj.timeslotCount})</span>
+                                                )}
                                             </span>
                                             {rowObj.isTimeslotRow && rowObj.startTime && (
                                                 <span className="text-[10px] font-normal opacity-80">
@@ -2829,7 +2889,13 @@ export default function ScheduleBoard() {
                                                 baseStyle={rowStyle.backgroundColor ? { backgroundColor: rowStyle.backgroundColor, color: rowStyle.color } : {}}
                                                 hidePlaceholder={!!draggingDoctorId || !!draggingShiftId}
                                             >
-                                                {renderCellShifts(day, rowName, ["Dienste", "Demonstrationen & Konsile"].includes(section.title), rowTimeslotId)}
+                                                {renderCellShifts(
+                                                    day, 
+                                                    rowName, 
+                                                    ["Dienste", "Demonstrationen & Konsile"].includes(section.title), 
+                                                    rowTimeslotId,
+                                                    isGroupHeader && isGroupCollapsed ? rowObj.allTimeslotIds : null
+                                                )}
                                             </DroppableCell>
                                         )}
                                     </div>
