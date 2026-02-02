@@ -54,7 +54,7 @@ router.post('/export', async (req, res, next) => {
 
     const start = parseISO(startDate);
     const end = parseISO(endDate);
-    const dbPool = req.dbPool;
+    const dbPool = req.db || db;
 
     // Fetch all required data from database
     const [shiftRows] = await dbPool.execute(
