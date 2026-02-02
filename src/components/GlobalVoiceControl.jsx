@@ -373,7 +373,7 @@ export default function GlobalVoiceControl() {
             else if (path.includes('Training')) area = "Ausbildung";
             else if (path.includes('Statistics')) area = "Statistik";
             else if (path.includes('Help')) area = "Hilfe";
-            else if (path.includes('Admin')) area = "Administration";
+            else if (path.includes('Admin')) area = "Adminbereich";
 
             // Check for open dialogs (heuristic)
             const dialogs = document.querySelectorAll('[role="dialog"]');

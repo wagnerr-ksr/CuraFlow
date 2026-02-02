@@ -21,7 +21,7 @@ export default function AdminPage() {
                     <ShieldCheck className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Administration</h1>
+                    <h1 className="text-3xl font-bold text-slate-900">Adminbereich</h1>
                     <p className="text-slate-500">Systemverwaltung und Wartung</p>
                 </div>
             </div>

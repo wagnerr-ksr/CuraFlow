@@ -773,7 +773,7 @@ export default function HelpPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-xl">
                                 <Shield className="w-6 h-6 text-red-600" />
-                                Administration
+                                Adminbereich
                             </CardTitle>
                             <CardDescription>
                                 Systemverwaltung - nur für Administratoren zugänglich.
