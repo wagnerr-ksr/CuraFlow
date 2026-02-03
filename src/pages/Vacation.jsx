@@ -189,6 +189,34 @@ export default function VacationPage() {
       setShowSimulationDialog(true);
   };
 
+  // Führt die tatsächlichen Änderungen aus
+  const executeSyncAbsences = () => {
+      if (!simulationData || simulationData.newShifts.length === 0) return;
+      
+      // Bereite die Daten für die DB vor (ohne die UI-spezifischen Felder)
+      const shiftsToCreate = simulationData.newShifts.map(({ doctorName, reason, replacesExisting, ...shift }) => shift);
+      
+      if (simulationData.shiftsToDeleteIds.length > 0) {
+          bulkDeleteShiftMutation.mutate(simulationData.shiftsToDeleteIds, {
+              onSuccess: () => {
+                  bulkCreateShiftMutation.mutate(shiftsToCreate, {
+                      onSuccess: () => {
+                          setShowSimulationDialog(false);
+                          setSimulationData(null);
+                      }
+                  });
+              }
+          });
+      } else {
+          bulkCreateShiftMutation.mutate(shiftsToCreate, {
+              onSuccess: () => {
+                  setShowSimulationDialog(false);
+                  setSimulationData(null);
+              }
+          });
+      }
+  };
+
   // Prepare Props for Overview
   const rawVisibleTypes = systemSettings.find(s => s.key === 'overview_visible_types')?.value;
   const visibleTypes = rawVisibleTypes ? JSON.parse(rawVisibleTypes) : ["Urlaub", "Krank", "Frei", "Dienstreise", "Nicht verfügbar"];
@@ -526,11 +554,10 @@ export default function VacationPage() {
                     <Button 
                         variant="outline" 
                         onClick={handleSyncAbsences}
-                        title="Simulation: Zeigt geplante Änderungen aus dem Stellenplan (KO, EZ, 0.0 FTE, Vertragsende)"
-                        className="border-amber-300 bg-amber-50 hover:bg-amber-100"
+                        title="Abwesenheiten aus Stellenplan übernehmen (KO, EZ, 0.0 FTE, Vertragsende)"
                     >
                         <Wand2 className="w-4 h-4 mr-2" />
-                        Stellenplan-Sync (Simulation)
+                        Stellenplan-Sync
                     </Button>
                     <AppSettingsDialog />
                 </>
@@ -772,11 +799,23 @@ export default function VacationPage() {
           <DialogFooter className="border-t pt-4">
             <div className="flex items-center gap-2 text-sm text-slate-500 mr-auto">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
-              Simulation - Aktivieren Sie die echte Sync-Funktion erst nach Überprüfung
+              Bitte prüfen Sie die Änderungen sorgfältig vor der Ausführung
             </div>
             <Button variant="outline" onClick={() => setShowSimulationDialog(false)}>
-              Schließen
+              Abbrechen
             </Button>
+            {simulationData && simulationData.newShifts.length > 0 && (
+              <Button 
+                onClick={executeSyncAbsences}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={bulkCreateShiftMutation.isLoading || bulkDeleteShiftMutation.isLoading}
+              >
+                {(bulkCreateShiftMutation.isLoading || bulkDeleteShiftMutation.isLoading) 
+                  ? "Wird ausgeführt..." 
+                  : `${simulationData.newShifts.length} Änderungen ausführen`
+                }
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
