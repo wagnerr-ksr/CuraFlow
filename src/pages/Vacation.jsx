@@ -690,7 +690,7 @@ export default function VacationPage() {
                   </div>
                 </div>
               ) : (
-                <ScrollArea className="flex-1 border rounded-lg">
+                <ScrollArea className="h-[400px] border rounded-lg">
                   <Table>
                     <TableHeader className="sticky top-0 bg-white z-10">
                       <TableRow>
