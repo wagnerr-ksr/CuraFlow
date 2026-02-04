@@ -1623,10 +1623,13 @@ export default function ScheduleBoard() {
 
     // Handle Drop on Row Header (Assign Mo-Fr)
     if (destination.droppableId.startsWith('rowHeader__')) {
-        // Format: rowHeader__position oder rowHeader__position__timeslotId
+        // Format: rowHeader__position oder rowHeader__position__timeslotId oder rowHeader__position__allTimeslots__
         const headerParts = destination.droppableId.replace('rowHeader__', '').split('__');
         const rowName = headerParts[0];
-        const rowHeaderTimeslotId = headerParts[1] || null;
+        const rawHeaderTimeslotId = headerParts[1] || null;
+        // Special case: __allTimeslots__ means assign to ALL timeslots of this workplace
+        const isAllTimeslots = rawHeaderTimeslotId === 'allTimeslots';
+        const rowHeaderTimeslotId = isAllTimeslots ? null : rawHeaderTimeslotId;
         let doctorId = null;
 
         if (source.droppableId === 'sidebar') {
@@ -1684,46 +1687,51 @@ export default function ScheduleBoard() {
             }
 
             // Prepare Assignment - Duplikat-Prüfung mit Timeslot-Berücksichtigung
-            const existingShift = currentWeekShifts.find(s => {
-                if (s.date !== dateStr || s.position !== rowName || s.doctor_id !== doctorId) return false;
-                if (rowHeaderTimeslotId) return s.timeslot_id === rowHeaderTimeslotId;
-                return !s.timeslot_id;
-            });
-            if (existingShift) continue; 
+            // Bei isAllTimeslots: Schichten für ALLE Timeslots des Arbeitsplatzes erstellen
+            const workplace = workplaces.find(w => w.name === rowName);
+            const timeslotsToAssign = isAllTimeslots && workplace?.timeslots_enabled
+                ? workplaceTimeslots
+                    .filter(t => t.workplace_id === workplace.id)
+                    .map(t => t.id)
+                : [rowHeaderTimeslotId]; // Array mit einem Element (oder null)
 
-            const alreadyHasThis = currentWeekShifts.find(s => {
-                if (s.date !== dateStr || s.position !== rowName || s.doctor_id !== doctorId) return false;
-                if (rowHeaderTimeslotId) return s.timeslot_id === rowHeaderTimeslotId;
-                return !s.timeslot_id;
-            });
-            if (alreadyHasThis) continue;
+            for (const tsId of timeslotsToAssign) {
+                const effectiveTsId = tsId === '__unassigned__' ? null : tsId;
+                
+                const existingShift = currentWeekShifts.find(s => {
+                    if (s.date !== dateStr || s.position !== rowName || s.doctor_id !== doctorId) return false;
+                    if (effectiveTsId) return s.timeslot_id === effectiveTsId;
+                    return !s.timeslot_id;
+                });
+                if (existingShift) continue; 
 
-            // Bei Timeslot-Zeilen: Filter auch nach timeslot_id
-            const cellShifts = currentWeekShifts.filter(s => {
-                if (s.date !== dateStr || s.position !== rowName) return false;
-                if (rowHeaderTimeslotId) return s.timeslot_id === rowHeaderTimeslotId;
-                return !s.timeslot_id;
-            });
-            // Also check pending creates for order calculation within this batch
-            const pendingInCell = toCreate.filter(s => s.date === dateStr && s.position === rowName && s.timeslot_id === rowHeaderTimeslotId);
+                // Bei Timeslot-Zeilen: Filter auch nach timeslot_id
+                const cellShifts = currentWeekShifts.filter(s => {
+                    if (s.date !== dateStr || s.position !== rowName) return false;
+                    if (effectiveTsId) return s.timeslot_id === effectiveTsId;
+                    return !s.timeslot_id;
+                });
+                // Also check pending creates for order calculation within this batch
+                const pendingInCell = toCreate.filter(s => s.date === dateStr && s.position === rowName && s.timeslot_id === effectiveTsId);
 
-            const maxOrder = Math.max(
-                cellShifts.reduce((max, s) => Math.max(max, s.order || 0), -1),
-                pendingInCell.reduce((max, s) => Math.max(max, s.order || 0), -1)
-            );
+                const maxOrder = Math.max(
+                    cellShifts.reduce((max, s) => Math.max(max, s.order || 0), -1),
+                    pendingInCell.reduce((max, s) => Math.max(max, s.order || 0), -1)
+                );
 
-            const newShiftData = {
-                date: dateStr,
-                position: rowName,
-                doctor_id: doctorId,
-                order: maxOrder + 1
-            };
-            // '__unassigned__' bedeutet explizit kein Timeslot (Altdaten-Zeile)
-            if (rowHeaderTimeslotId && rowHeaderTimeslotId !== '__unassigned__') {
-                newShiftData.timeslot_id = rowHeaderTimeslotId;
+                const newShiftData = {
+                    date: dateStr,
+                    position: rowName,
+                    doctor_id: doctorId,
+                    order: maxOrder + 1
+                };
+                // '__unassigned__' bedeutet explizit kein Timeslot (Altdaten-Zeile)
+                if (effectiveTsId) {
+                    newShiftData.timeslot_id = effectiveTsId;
+                }
+                toCreate.push(newShiftData);
+                successCount++;
             }
-            toCreate.push(newShiftData);
-            successCount++;
         }
 
         // Execute Batch
@@ -1797,18 +1805,29 @@ export default function ScheduleBoard() {
             doctorId = draggableId.substring(14, draggableId.length - 11);
         }
 
-        // Format: date__position oder date__position__timeslotId
+        // Format: date__position oder date__position__timeslotId oder date__position__allTimeslots__
         const dropParts = destination.droppableId.split('__');
         const dateStr = dropParts[0];
         const position = dropParts[1];
         const rawTimeslotId = dropParts[2] || null;
+        // Special case: __allTimeslots__ means assign to ALL timeslots of this workplace
+        const isAllTimeslots = rawTimeslotId === 'allTimeslots';
         // '__unassigned__' bedeutet explizit kein Timeslot
-        let timeslotId = rawTimeslotId === '__unassigned__' ? null : rawTimeslotId;
+        let timeslotId = (rawTimeslotId === '__unassigned__' || isAllTimeslots) ? null : rawTimeslotId;
+
+        // Bei allTimeslots: Alle Timeslots des Arbeitsplatzes ermitteln
+        const workplace = workplaces.find(w => w.name === position);
+        let timeslotsToAssign = null;
+        if (isAllTimeslots && workplace?.timeslots_enabled) {
+            timeslotsToAssign = workplaceTimeslots
+                .filter(t => t.workplace_id === workplace.id)
+                .map(t => t.id);
+            console.log('allTimeslots drop - assigning to:', timeslotsToAssign);
+        }
 
         // Auto-Timeslot: Wenn kein Timeslot angegeben, aber Workplace nur einen Timeslot hat,
         // automatisch diesen verwenden
-        if (!timeslotId) {
-            const workplace = workplaces.find(w => w.name === position);
+        if (!timeslotId && !isAllTimeslots) {
             if (workplace?.timeslots_enabled) {
                 const wpTimeslots = workplaceTimeslots
                     .filter(t => t.workplace_id === workplace.id)
@@ -1833,19 +1852,22 @@ export default function ScheduleBoard() {
              if (limitWarning) alert(limitWarning);
 
              // WICHTIG: Duplikat-Prüfung VOR dem Löschen des bestehenden Shifts
+             // Bei isAllTimeslots: Prüfung pro Timeslot erfolgt später in der Schleife
              // Bei Timeslot-Zeilen auch timeslot_id prüfen
              // '__unassigned__' = Zeile für Shifts ohne Timeslot
-             const effectiveTimeslotId = timeslotId === '__unassigned__' ? null : timeslotId;
-             const exists = currentWeekShifts.some(s => {
-                 if (s.date !== dateStr || s.position !== position || s.doctor_id !== doctorId) return false;
-                 if (effectiveTimeslotId) return s.timeslot_id === effectiveTimeslotId;
-                 return !s.timeslot_id; // Für normale Zeilen ohne Timeslot
-             });
+             if (!isAllTimeslots) {
+                 const effectiveTimeslotId = timeslotId === '__unassigned__' ? null : timeslotId;
+                 const exists = currentWeekShifts.some(s => {
+                     if (s.date !== dateStr || s.position !== position || s.doctor_id !== doctorId) return false;
+                     if (effectiveTimeslotId) return s.timeslot_id === effectiveTimeslotId;
+                     return !s.timeslot_id; // Für normale Zeilen ohne Timeslot
+                 });
 
-             if (exists) {
-                 console.log('DEBUG: Blocked - Shift already exists for this doctor/date/position/timeslot');
-                 alert('Mitarbeiter ist in dieser Position bereits eingeteilt.');
-                 return;
+                 if (exists) {
+                     console.log('DEBUG: Blocked - Shift already exists for this doctor/date/position/timeslot');
+                     alert('Mitarbeiter ist in dieser Position bereits eingeteilt.');
+                     return;
+                 }
              }
 
              const occupyingShift = findOccupyingShift(dateStr, position);
@@ -1861,44 +1883,61 @@ export default function ScheduleBoard() {
         // Shift erstellen (exists-Prüfung ist jetzt bereits weiter oben erfolgt)
         // Bei Timeslot-Rows: Filter auch nach timeslot_id
         // '__unassigned__' = Zeile für Shifts ohne Timeslot
-        const effectiveTimeslotForFilter = timeslotId === '__unassigned__' ? null : timeslotId;
-        const existingInCell = currentWeekShifts.filter(s => {
-            if (s.date !== dateStr || s.position !== position) return false;
-            if (effectiveTimeslotForFilter) return s.timeslot_id === effectiveTimeslotForFilter;
-            return !s.timeslot_id; // Für normale Zeilen ohne Timeslot
-        });
+        const shiftsToCreate = [];
+        
+        // Bei allTimeslots: Für jeden Timeslot eine Schicht erstellen
+        const slotsToProcess = timeslotsToAssign || [timeslotId];
+        
+        for (const tsId of slotsToProcess) {
+            const effectiveTsId = tsId === '__unassigned__' ? null : tsId;
+            
+            // Duplikat-Prüfung pro Timeslot
+            const existsForSlot = currentWeekShifts.some(s => {
+                if (s.date !== dateStr || s.position !== position || s.doctor_id !== doctorId) return false;
+                if (effectiveTsId) return s.timeslot_id === effectiveTsId;
+                return !s.timeslot_id;
+            });
+            if (existsForSlot) {
+                console.log('DEBUG: Skipping - Shift already exists for timeslot:', effectiveTsId);
+                continue;
+            }
+            
+            const existingInCell = currentWeekShifts.filter(s => {
+                if (s.date !== dateStr || s.position !== position) return false;
+                if (effectiveTsId) return s.timeslot_id === effectiveTsId;
+                return !s.timeslot_id;
+            });
             const maxOrder = existingInCell.reduce((max, s) => Math.max(max, s.order || 0), -1);
             const newOrder = maxOrder + 1;
 
-            const shiftsToCreate = [];
             const newShiftData = { date: dateStr, position, doctor_id: doctorId, order: newOrder };
-            // '__unassigned__' bedeutet explizit kein Timeslot (Altdaten-Zeile)
-            if (timeslotId && timeslotId !== '__unassigned__') newShiftData.timeslot_id = timeslotId;
+            if (effectiveTsId) newShiftData.timeslot_id = effectiveTsId;
             shiftsToCreate.push(newShiftData);
+        }
+        
+        // Check Auto-Frei immediately to bundle operations
+        const autoFreiDateStr = shouldCreateAutoFrei(position, dateStr, isPublicHoliday);
+        let updateAutoFreiNeeded = false;
+        let existingAutoFreiShift = null;
 
-            // Check Auto-Frei immediately to bundle operations
-            const autoFreiDateStr = shouldCreateAutoFrei(position, dateStr, isPublicHoliday);
-            let updateAutoFreiNeeded = false;
-            let existingAutoFreiShift = null;
+        if (autoFreiDateStr) {
+            const warning = checkStaffing(autoFreiDateStr, doctorId);
+            if (warning) {
+                alert(`${warning}\n\n(Durch automatischen Freizeitausgleich am ${format(new Date(autoFreiDateStr), 'dd.MM.')})`);
+            }
 
-            if (autoFreiDateStr) {
-                const warning = checkStaffing(autoFreiDateStr, doctorId);
-                if (warning) {
-                    alert(`${warning}\n\n(Durch automatischen Freizeitausgleich am ${format(new Date(autoFreiDateStr), 'dd.MM.')})`);
-                }
-
-                existingAutoFreiShift = allShifts.find(s => s.date === autoFreiDateStr && s.doctor_id === doctorId);
-                
-                if (!existingAutoFreiShift) {
-                    shiftsToCreate.push({
-                        date: autoFreiDateStr,
-                        position: 'Frei',
-                        doctor_id: doctorId,
-                        note: 'Autom. Freizeitausgleich'
-                    });
-                } else if (existingAutoFreiShift.position !== 'Frei') {
-                    updateAutoFreiNeeded = true;
-                }
+            existingAutoFreiShift = allShifts.find(s => s.date === autoFreiDateStr && s.doctor_id === doctorId);
+            
+            if (!existingAutoFreiShift) {
+                shiftsToCreate.push({
+                    date: autoFreiDateStr,
+                    position: 'Frei',
+                    doctor_id: doctorId,
+                    note: 'Autom. Freizeitausgleich'
+                });
+            } else if (existingAutoFreiShift.position !== 'Frei') {
+                updateAutoFreiNeeded = true;
+            }
             }
 
             console.log('DEBUG: Creating shifts (Bulk)', shiftsToCreate);
@@ -2753,14 +2792,19 @@ export default function ScheduleBoard() {
                         const isGroupCollapsed = collapsedTimeslotGroups.includes(rowName);
                         const rowStyle = getRowStyle(rowName, customStyle);
                         
+                        // Gruppen-Header: droppableId mit spezieller Markierung "__allTimeslots__"
+                        const headerDroppableId = isGroupHeader 
+                            ? `rowHeader__${rowName}__allTimeslots__`
+                            : `rowHeader__${rowName}${rowTimeslotId ? '__' + rowTimeslotId : ''}`;
+                        
                         return (
                         <div key={`${sIdx}-${rowDisplayName}-${rowTimeslotId || 'full'}`} className={`grid ${viewMode === 'day' ? 'grid-cols-[200px_1fr]' : 'grid-cols-[200px_repeat(7,1fr)]'} border-b border-slate-200 ${(draggingDoctorId || draggingShiftId) ? '' : 'hover:bg-slate-50/50'} transition-colors group`}>
-                            <Droppable droppableId={`rowHeader__${rowName}${rowTimeslotId ? '__' + rowTimeslotId : ''}`} isDropDisabled={isReadOnly || isGroupHeader}>
+                            <Droppable droppableId={headerDroppableId} isDropDisabled={isReadOnly}>
                                 {(provided, snapshot) => (
                                     <div 
                                         ref={provided.innerRef}
                                         {...provided.droppableProps}
-                                        className={`p-2 text-sm font-medium border-r border-slate-200 flex items-center justify-between transition-colors ${!customStyle ? section.headerColor : ''} ${snapshot.isDraggingOver && !isGroupHeader ? 'ring-2 ring-inset ring-indigo-400 bg-indigo-50' : ''} ${isGroupHeader ? 'cursor-pointer' : ''}`}
+                                        className={`p-2 text-sm font-medium border-r border-slate-200 flex items-center justify-between transition-colors ${!customStyle ? section.headerColor : ''} ${snapshot.isDraggingOver ? 'ring-2 ring-inset ring-indigo-400 bg-indigo-50' : ''} ${isGroupHeader ? 'cursor-pointer' : ''}`}
                                         style={customStyle ? customStyle.header : {}}
                                         onClick={isGroupHeader ? () => toggleTimeslotGroup(rowName) : undefined}
                                     >
@@ -2827,9 +2871,12 @@ export default function ScheduleBoard() {
                                 const isToday = isSameDay(day, new Date());
                                 const dateStr = format(day, 'yyyy-MM-dd');
                                 // Unique ID for droppable: date__position oder date__position__timeslotId
-                                const cellId = rowTimeslotId 
-                                    ? `${dateStr}__${rowName}__${rowTimeslotId}`
-                                    : `${dateStr}__${rowName}`;
+                                // Gruppen-Header: Spezielle Markierung "__allTimeslots__" für Zuweisung zu allen Timeslots
+                                const cellId = isGroupHeader
+                                    ? `${dateStr}__${rowName}__allTimeslots__`
+                                    : rowTimeslotId 
+                                        ? `${dateStr}__${rowName}__${rowTimeslotId}`
+                                        : `${dateStr}__${rowName}`;
                                 
                                 // Check if it's a demo row and if it's allowed
                                 let isDisabled = false;
