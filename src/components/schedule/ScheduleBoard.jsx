@@ -2343,7 +2343,7 @@ export default function ScheduleBoard() {
     const dateStr = format(date, 'yyyy-MM-dd');
     
     // Filter shifts by position and optionally by timeslot_id
-    const shifts = currentWeekShifts.filter(s => {
+    let shifts = currentWeekShifts.filter(s => {
       if (s.date !== dateStr || s.position !== rowName) return false;
       
       // Fall 0: Einzelner Timeslot - zeige nur Shifts dieses Timeslots + Shifts ohne Timeslot
@@ -2378,6 +2378,19 @@ export default function ScheduleBoard() {
       // Arbeitsplatz hat keine Timeslots - zeige alle Shifts
       return true;
     }).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // Bei eingeklappter Gruppe: Dedupliziere Ärzte, die in mehreren Timeslots eingetragen sind
+    // Zeige jeden Arzt nur EINMAL an, auch wenn er in allen Timeslots ist
+    if (allTimeslotIds && allTimeslotIds.length > 0) {
+      const seenDoctorIds = new Set();
+      shifts = shifts.filter(shift => {
+        if (seenDoctorIds.has(shift.doctor_id)) {
+          return false; // Duplikat überspringen
+        }
+        seenDoctorIds.add(shift.doctor_id);
+        return true;
+      });
+    }
 
     const isSingleShift = shifts.length === 1;
     const isFullWidth = isSectionFullWidth || isSingleShift;
