@@ -108,16 +108,18 @@ router.post('/tools', async (req, res, next) => {
       }
 
       case 'export_mysql_as_json': {
-        // Export all tables as JSON
-        const [tables] = await db.execute('SHOW TABLES');
+        // Export all tables as JSON - uses tenant DB if X-DB-Token provided
+        const dbPool = req.db || db;
+        const [tables] = await dbPool.execute('SHOW TABLES');
         const exportData = {};
 
         for (const table of tables) {
           const tableName = Object.values(table)[0];
-          const [rows] = await db.execute(`SELECT * FROM \`${tableName}\``);
+          const [rows] = await dbPool.execute(`SELECT * FROM \`${tableName}\``);
           exportData[tableName] = rows;
         }
 
+        console.log(`[export] Exported ${Object.keys(exportData).length} tables from ${req.db ? 'tenant' : 'master'} database`);
         return res.json(exportData);
       }
 
@@ -261,19 +263,22 @@ router.post('/tools', async (req, res, next) => {
       }
 
       case 'wipe_database': {
-        // Wipe all data from tables (DANGEROUS!)
-        const [tables] = await db.execute('SHOW TABLES');
+        // Wipe all data from tables (DANGEROUS!) - uses tenant DB if X-DB-Token provided
+        const dbPool = req.db || db;
+        const [tables] = await dbPool.execute('SHOW TABLES');
         
         for (const table of tables) {
           const tableName = Object.values(table)[0];
-          // Skip user table to keep admin access
-          if (tableName === 'User' || tableName === 'app_users') continue;
-          await db.execute(`DELETE FROM \`${tableName}\``);
+          // Skip user tables to keep admin access
+          if (tableName === 'User' || tableName === 'app_users' || tableName === 'db_tokens') continue;
+          await dbPool.execute(`DELETE FROM \`${tableName}\``);
         }
 
+        console.log(`[wipe] Wiped ${req.db ? 'tenant' : 'master'} database`);
         return res.json({ 
           message: 'Database wiped successfully',
-          warning: 'User table preserved'
+          warning: 'User/Token tables preserved',
+          dataSource: req.db ? 'tenant' : 'master'
         });
       }
 
@@ -316,9 +321,10 @@ router.use(adminMiddleware);
 router.get('/logs', async (req, res, next) => {
   try {
     const { limit = 100 } = req.query;
+    const dbPool = req.db || db;
     
     // Could query a logs table or return server logs
-    const [rows] = await db.execute(
+    const [rows] = await dbPool.execute(
       'SELECT * FROM system_logs ORDER BY created_date DESC LIMIT ?',
       [parseInt(limit)]
     );
@@ -345,12 +351,13 @@ router.post('/database/backup', async (req, res, next) => {
 
 router.get('/database/stats', async (req, res, next) => {
   try {
-    const [tables] = await db.execute('SHOW TABLES');
+    const dbPool = req.db || db;
+    const [tables] = await dbPool.execute('SHOW TABLES');
     const stats = [];
     
     for (const table of tables) {
       const tableName = Object.values(table)[0];
-      const [rows] = await db.execute(`SELECT COUNT(*) as count FROM \`${tableName}\``);
+      const [rows] = await dbPool.execute(`SELECT COUNT(*) as count FROM \`${tableName}\``);
       stats.push({ table: tableName, rows: rows[0].count });
     }
     
@@ -363,7 +370,8 @@ router.get('/database/stats', async (req, res, next) => {
 // ===== SYSTEM SETTINGS =====
 router.get('/settings', async (req, res, next) => {
   try {
-    const [rows] = await db.execute('SELECT * FROM system_settings');
+    const dbPool = req.db || db;
+    const [rows] = await dbPool.execute('SELECT * FROM system_settings');
     res.json(rows);
   } catch (error) {
     if (error.code === 'ER_NO_SUCH_TABLE') {
@@ -375,9 +383,10 @@ router.get('/settings', async (req, res, next) => {
 
 router.post('/settings', async (req, res, next) => {
   try {
+    const dbPool = req.db || db;
     const { key, value } = req.body;
     
-    await db.execute(
+    await dbPool.execute(
       'INSERT INTO system_settings (id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
       [crypto.randomUUID(), key, value, value]
     );
