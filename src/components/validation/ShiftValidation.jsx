@@ -263,6 +263,15 @@ export class ShiftValidator {
             s.id !== excludeShiftId
         );
 
+        // Check if new position is a non-availability-affecting workplace
+        const newWorkplace = this.workplaces.find(w => w.name === newPosition);
+        
+        // If the NEW position doesn't affect availability, only check for absences (handled elsewhere)
+        // Skip rotation/service conflict checks
+        if (newWorkplace?.affects_availability === false) {
+            return {};
+        }
+
         const rotationPositions = this.workplaces.filter(w => w.category === 'Rotationen').map(w => w.name);
         const exclusiveServices = this.workplaces
             .filter(w => w.category === 'Dienste' && w.allows_rotation_concurrently === false)
@@ -282,7 +291,15 @@ export class ShiftValidator {
 
         // Neuer exklusiver Dienst + existierende Rotation
         if (isNewService && newServiceWorkplace.allows_rotation_concurrently === false) {
-            const conflict = doctorShifts.find(s => rotationPositions.includes(s.position));
+            // Check if existing shift is a non-availability-affecting position
+            // If so, it doesn't block the new service
+            const conflict = doctorShifts.find(s => {
+                if (!rotationPositions.includes(s.position)) return false;
+                const existingWorkplace = this.workplaces.find(w => w.name === s.position);
+                // Non-availability-affecting positions don't block
+                if (existingWorkplace?.affects_availability === false) return false;
+                return true;
+            });
             if (conflict) {
                 return { blocker: `Konflikt: Rotation "${conflict.position}" ist nicht mit diesem Dienst kombinierbar.` };
             }

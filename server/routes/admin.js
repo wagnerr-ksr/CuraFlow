@@ -681,6 +681,21 @@ router.post('/run-timeslot-migrations', async (req, res, next) => {
       results.push({ migration: 'add_team_role_permissions', status: 'error', error: err.message });
     }
 
+    // Migration 9: Add affects_availability to Workplace (for non-blocking positions like "Demo Chirurgie")
+    try {
+      await dbPool.execute(`
+        ALTER TABLE Workplace 
+        ADD COLUMN affects_availability BOOLEAN DEFAULT TRUE
+      `);
+      results.push({ migration: 'add_workplace_affects_availability', status: 'success' });
+    } catch (err) {
+      if (err.code === 'ER_DUP_FIELDNAME') {
+        results.push({ migration: 'add_workplace_affects_availability', status: 'skipped', reason: 'Column already exists' });
+      } else {
+        results.push({ migration: 'add_workplace_affects_availability', status: 'error', error: err.message });
+      }
+    }
+
     // Clear column cache for affected tables so new columns are recognized
     const cacheKey = req.headers['x-db-token'] || 'default';
     clearColumnsCache(['Workplace', 'WorkplaceTimeslot', 'ShiftEntry', 'TimeslotTemplate', 'TeamRole'], cacheKey);
@@ -742,6 +757,12 @@ router.get('/timeslot-migration-status', async (req, res, next) => {
         name: 'add_workplace_work_time_percentage',
         description: 'Arbeitszeit-Prozentsatz pro Dienst (z.B. Rufbereitschaft = 70%)',
         applied: columnNames.includes('work_time_percentage')
+      });
+      
+      migrations.push({
+        name: 'add_workplace_affects_availability',
+        description: 'Verfügbarkeitsrelevanz pro Arbeitsplatz (z.B. Demo Chirurgie = nicht relevant)',
+        applied: columnNames.includes('affects_availability')
       });
     } catch (err) {
       migrations.push({

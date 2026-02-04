@@ -2542,21 +2542,32 @@ export default function ScheduleBoard() {
                        <DropdownMenuSeparator />
                        <DropdownMenuLabel>Zeilen verwalten</DropdownMenuLabel>
                        <ScrollArea className="h-[300px]">
-                           {sections.flatMap(s => s.rows).map(row => (
+                           {sections.flatMap(s => s.rows).map((row, idx) => {
+                               // Rückwärtskompatibilität: Falls string, in Objekt konvertieren
+                               const rowObj = typeof row === 'string' 
+                                   ? { name: row, displayName: row } 
+                                   : row;
+                               const rowName = rowObj.name;
+                               const rowDisplayName = rowObj.displayName || rowName;
+                               const rowKey = rowObj.timeslotId 
+                                   ? `${rowName}-${rowObj.timeslotId}` 
+                                   : `${rowName}-${idx}`;
+                               return (
                                <DropdownMenuCheckboxItem
-                                   key={row}
-                                   checked={!hiddenRows.includes(row)}
+                                   key={rowKey}
+                                   checked={!hiddenRows.includes(rowName)}
                                    onCheckedChange={(checked) => {
                                        setHiddenRows(prev => 
                                            checked 
-                                               ? prev.filter(r => r !== row) 
-                                               : [...prev, row]
+                                               ? prev.filter(r => r !== rowName) 
+                                               : [...prev, rowName]
                                        );
                                    }}
                                >
-                                   {row}
+                                   {rowDisplayName}
                                </DropdownMenuCheckboxItem>
-                           ))}
+                               );
+                           })}
                        </ScrollArea>
                    </DropdownMenuContent>
                 </DropdownMenu>
@@ -2885,7 +2896,11 @@ export default function ScheduleBoard() {
 
                                                         const wp = workplaces.find(w => w.name === s.position);
 
-                                                        // Explicit permission
+                                                        // NEW: If workplace doesn't affect availability, it's never blocking
+                                                        // (except for absences which have no workplace entry)
+                                                        if (wp?.affects_availability === false) return false;
+
+                                                        // Explicit permission for rotation concurrency
                                                         if (wp?.allows_rotation_concurrently === true) return false;
 
                                                         // Explicit prohibition

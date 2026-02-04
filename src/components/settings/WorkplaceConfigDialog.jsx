@@ -473,6 +473,19 @@ export default function WorkplaceConfigDialog({ defaultTab = "Rotationen" }) {
                                                                                         onCheckedChange={(checked) => setEditForm({...editForm, show_in_service_plan: checked})}
                                                                                     />
                                                                                 </div>
+                                                                                <div className="flex items-center justify-between p-3 border rounded bg-amber-50">
+                                                                                    <div className="space-y-0.5">
+                                                                                        <Label className="text-base">Verfügbarkeit beeinflussen</Label>
+                                                                                        <div className="text-xs text-slate-500">
+                                                                                            Wenn deaktiviert: Mitarbeiter bleibt "Verfügbar" trotz Einteilung.
+                                                                                            Nur Abwesenheits-Konflikte werden geprüft.
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <Switch
+                                                                                        checked={editForm.affects_availability !== false} // Default true
+                                                                                        onCheckedChange={(checked) => setEditForm({...editForm, affects_availability: checked})}
+                                                                                    />
+                                                                                </div>
                                                                             </div>
                                                                         )}
 
@@ -509,6 +522,19 @@ export default function WorkplaceConfigDialog({ defaultTab = "Rotationen" }) {
                                                                                     <Switch
                                                                                         checked={editForm.show_in_service_plan || false}
                                                                                         onCheckedChange={(checked) => setEditForm({...editForm, show_in_service_plan: checked})}
+                                                                                    />
+                                                                                </div>
+                                                                                <div className="flex items-center justify-between p-3 border rounded bg-amber-50">
+                                                                                    <div className="space-y-0.5">
+                                                                                        <Label className="text-base">Verfügbarkeit beeinflussen</Label>
+                                                                                        <div className="text-xs text-slate-500">
+                                                                                            Wenn deaktiviert: Mitarbeiter bleibt "Verfügbar" trotz Einteilung.
+                                                                                            Nur Abwesenheits-Konflikte werden geprüft.
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <Switch
+                                                                                        checked={editForm.affects_availability !== false} // Default true
+                                                                                        onCheckedChange={(checked) => setEditForm({...editForm, affects_availability: checked})}
                                                                                     />
                                                                                 </div>
                                                                             </div>
@@ -560,12 +586,13 @@ export default function WorkplaceConfigDialog({ defaultTab = "Rotationen" }) {
                                                                             <GripVertical className="w-5 h-5" />
                                                                         </div>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <div className="font-medium text-slate-900 flex items-center gap-2">
+                                                                            <div className="font-medium text-slate-900 flex items-center gap-2 flex-wrap">
                                                                                 {item.name}
                                                                                 {item.time && <Badge variant="outline" className="text-[10px] font-normal">{item.time} Uhr</Badge>}
                                                                                 {item.auto_off && <Badge variant="secondary" className="text-[10px] font-normal bg-blue-100 text-blue-700">Auto-Frei</Badge>}
                                                                                 {item.allows_rotation_concurrently && <Badge variant="secondary" className="text-[10px] font-normal bg-green-100 text-green-700">Rotation OK</Badge>}
                                                                                 {item.show_in_service_plan && <Badge variant="secondary" className="text-[10px] font-normal bg-purple-100 text-purple-700">Dienstplan</Badge>}
+                                                                                {item.affects_availability === false && <Badge variant="secondary" className="text-[10px] font-normal bg-amber-100 text-amber-700">Nicht verfügbarkeitsrelevant</Badge>}
                                                                             </div>
                                                                             {(activeTab === "Demonstrationen & Konsile" || isCustomCategory) && item.active_days && (
                                                                                 <div className="flex gap-1 mt-1">
