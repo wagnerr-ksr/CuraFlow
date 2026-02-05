@@ -1137,6 +1137,33 @@ export default function ScheduleBoard() {
       return result.warnings.length > 0 ? result.warnings.join('\n') : null;
   };
 
+  // Staffing-Prüfung mit Override-Dialog (für Abwesenheiten)
+  // Gibt true zurück wenn blockiert (Aktion abbrechen)
+  const checkStaffingWithOverride = (doctorId, dateStr, position, onProceed = null) => {
+      const result = validate(doctorId, dateStr, position, {});
+      const doctor = doctors.find(d => d.id === doctorId);
+      
+      // Staffing-Warnungen als Override-Möglichkeit anzeigen
+      const staffingWarnings = result.warnings.filter(w => 
+          w.includes('Mindestbesetzung') || w.includes('anwesend')
+      );
+      
+      if (staffingWarnings.length > 0) {
+          requestOverride({
+              blockers: staffingWarnings, // Als Blocker anzeigen für Override-Option
+              warnings: [],
+              doctorId,
+              doctorName: doctor?.name,
+              date: dateStr,
+              position: position,
+              onConfirm: onProceed
+          });
+          return true; // Blockiert - warte auf Override-Bestätigung
+      }
+      
+      return false; // Nicht blockiert
+  };
+
   // Wrapper für Limit-Prüfung (jetzt nur Warnung)
   const checkLimits = (doctorId, dateStr, position) => {
       const result = validate(doctorId, dateStr, position, {});
@@ -1882,10 +1909,36 @@ export default function ScheduleBoard() {
         console.log('Dropping Doctor:', doctorId, 'to', dateStr, position, 'timeslotId:', timeslotId);
 
         if (absencePositions.includes(position)) {
-             const warning = checkStaffing(dateStr, doctorId);
-             if (warning) alert(warning);
+             // Hilfsfunktion für das Erstellen der Abwesenheit
+             const executeAbsenceCreation = () => {
+                 cleanupOtherShifts(doctorId, dateStr);
+                 
+                 // Prüfe ob bereits ein Eintrag existiert
+                 const existing = currentWeekShifts.find(s => 
+                     s.date === dateStr && s.doctor_id === doctorId && s.position === position
+                 );
+                 if (existing) {
+                     console.log('DEBUG: Absence already exists');
+                     return;
+                 }
+                 
+                 const existingInCell = currentWeekShifts.filter(s => s.date === dateStr && s.position === position);
+                 const maxOrder = existingInCell.reduce((max, s) => Math.max(max, s.order || 0), -1);
+                 const newOrder = maxOrder + 1;
 
-             cleanupOtherShifts(doctorId, dateStr);
+                 createShiftMutation.mutate({ date: dateStr, position, doctor_id: doctorId, order: newOrder });
+             };
+
+             // Staffing-Prüfung mit Override-Möglichkeit
+             const hasStaffingWarning = checkStaffingWithOverride(doctorId, dateStr, position, executeAbsenceCreation);
+             if (hasStaffingWarning) {
+                 console.log('Staffing warning - waiting for override decision');
+                 return;
+             }
+
+             // Keine Warnung - direkt ausführen
+             executeAbsenceCreation();
+             return;
         } else {
              // Check limits for services
              const limitWarning = checkLimits(doctorId, dateStr, position);
@@ -2088,10 +2141,35 @@ export default function ScheduleBoard() {
              }
 
              if (absencePositions.includes(newPosition)) {
-                 const warning = checkStaffing(newDateStr, shift.doctor_id);
-                 if (warning) toast.warning(warning);
+                 // Hilfsfunktion für die Kopie-Erstellung bei Abwesenheit
+                 const executeCopyAbsence = () => {
+                     cleanupOtherShifts(shift.doctor_id, newDateStr);
+                     
+                     const existingInNewCell = currentWeekShifts.filter(s => {
+                         if (s.date !== newDateStr || s.position !== newPosition) return false;
+                         if (newTimeslotId) return s.timeslot_id === newTimeslotId;
+                         return !s.timeslot_id;
+                     });
+                     const maxOrder = existingInNewCell.reduce((max, s) => Math.max(max, s.order || 0), -1);
+                     const newOrder = maxOrder + 1;
 
-                 cleanupOtherShifts(shift.doctor_id, newDateStr);
+                     const copyData = { date: newDateStr, position: newPosition, doctor_id: shift.doctor_id, order: newOrder };
+                     if (newTimeslotId) copyData.timeslot_id = newTimeslotId;
+
+                     createShiftMutation.mutate(copyData, {
+                         onSuccess: () => {
+                             handlePostShiftOff(shift.doctor_id, newDateStr, newPosition);
+                         }
+                     });
+                 };
+
+                 // Staffing-Prüfung mit Override-Möglichkeit
+                 const hasStaffingWarning = checkStaffingWithOverride(shift.doctor_id, newDateStr, newPosition, executeCopyAbsence);
+                 if (hasStaffingWarning) return;
+                 
+                 // Keine Warnung - direkt ausführen
+                 executeCopyAbsence();
+                 return;
              } else {
                  // Check limits for services
                  const limitWarning = checkLimits(shift.doctor_id, newDateStr, newPosition);
@@ -2158,11 +2236,42 @@ export default function ScheduleBoard() {
         }
 
         if (absencePositions.includes(newPosition)) {
-             // Moving TO absence -> cleanup others on new date
-             const warning = checkStaffing(newDateStr, shift.doctor_id);
-             if (warning) toast.warning(warning);
+             // Moving TO absence -> Staffing-Prüfung mit Override
+             
+             // Hilfsfunktion für das Verschieben zur Abwesenheit
+             const executeMoveToAbsence = () => {
+                 cleanupOtherShifts(shift.doctor_id, newDateStr, shiftId);
+                 
+                 const existingInNewCell = currentWeekShifts.filter(s => {
+                     if (s.date !== newDateStr || s.position !== newPosition) return false;
+                     if (newTimeslotId) return s.timeslot_id === newTimeslotId;
+                     return !s.timeslot_id;
+                 });
+                 const maxOrder = existingInNewCell.reduce((max, s) => Math.max(max, s.order || 0), -1);
+                 const newOrder = maxOrder + 1;
 
-             cleanupOtherShifts(shift.doctor_id, newDateStr, shiftId);
+                 const updateData = { date: newDateStr, position: newPosition, order: newOrder };
+                 if (newTimeslotId !== undefined) {
+                     updateData.timeslot_id = newTimeslotId;
+                 }
+
+                 updateShiftMutation.mutate(
+                     { id: shiftId, data: updateData },
+                     {
+                         onSuccess: () => {
+                             handlePostShiftOff(shift.doctor_id, newDateStr, newPosition);
+                         }
+                     }
+                 );
+             };
+
+             // Staffing-Prüfung mit Override-Möglichkeit
+             const hasStaffingWarning = checkStaffingWithOverride(shift.doctor_id, newDateStr, newPosition, executeMoveToAbsence);
+             if (hasStaffingWarning) return;
+             
+             // Keine Warnung - direkt ausführen
+             executeMoveToAbsence();
+             return;
         } else {
              // Moving TO work -> check conflicts
              
@@ -2208,31 +2317,6 @@ export default function ScheduleBoard() {
              executeMove();
              return;
         }
-
-        // Für Abwesenheiten: direkt ausführen (keine Konfliktprüfung für Abwesenheiten)
-        // Calculate order for new cell (mit Timeslot-Filter)
-        const existingInNewCell = currentWeekShifts.filter(s => {
-            if (s.date !== newDateStr || s.position !== newPosition) return false;
-            if (newTimeslotId) return s.timeslot_id === newTimeslotId;
-            return !s.timeslot_id;
-        });
-        const maxOrder = existingInNewCell.reduce((max, s) => Math.max(max, s.order || 0), -1);
-        const newOrder = maxOrder + 1;
-
-        // Update mit optionalem timeslot_id
-        const updateData = { date: newDateStr, position: newPosition, order: newOrder };
-        if (newTimeslotId !== undefined) {
-            updateData.timeslot_id = newTimeslotId; // kann null sein, um Timeslot zu entfernen
-        }
-
-        updateShiftMutation.mutate(
-            { id: shiftId, data: updateData },
-            {
-                onSuccess: () => {
-                    handlePostShiftOff(shift.doctor_id, newDateStr, newPosition);
-                }
-            }
-        );
         return;
     }
   };
