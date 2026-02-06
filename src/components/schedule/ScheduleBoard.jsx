@@ -2705,51 +2705,6 @@ export default function ScheduleBoard() {
     );
   }, [currentWeekShifts, doctors, getRoleColor]);
 
-  // Render clone for available doctor drags - matches sidebar and shift behavior
-  const renderAvailableClone = useMemo(() => (provided, snapshot, rubric) => {
-    const draggableId = rubric.draggableId;
-    if (!draggableId.startsWith('available-doc-')) return null;
-    
-    // Parse doctor ID from "available-doc-{docId}-{dateStr}"
-    const parts = draggableId.replace('available-doc-', '');
-    const lastDash = parts.lastIndexOf('-');
-    const docId = parts.substring(0, lastDash);
-    
-    const doctor = doctors.find(d => d.id === docId);
-    if (!doctor) return null;
-    
-    const roleColor = getRoleColor(doctor.role);
-    
-    return (
-      <div
-        ref={provided.innerRef}
-        {...provided.draggableProps}
-        {...provided.dragHandleProps}
-        className="flex items-center justify-center"
-        style={{
-          ...provided.draggableProps.style,
-          backgroundColor: 'transparent',
-          border: 'none',
-          boxShadow: 'none',
-          width: '60px',
-          height: '32px',
-        }}
-      >
-        <div 
-          className="flex items-center justify-center rounded-md font-bold border shadow-2xl ring-4 ring-indigo-400 px-2 py-1"
-          style={{
-            backgroundColor: roleColor?.backgroundColor || '#f1f5f9',
-            color: roleColor?.color || '#0f172a',
-            minWidth: '40px',
-            zIndex: 9999,
-          }}
-        >
-          <span className="text-xs">{doctor?.initials || doctor?.name?.substring(0, 3)}</span>
-        </div>
-      </div>
-    );
-  }, [doctors, getRoleColor]);
-
   // Mobile View
   if (isMobile) {
       return (
@@ -3298,11 +3253,7 @@ export default function ScheduleBoard() {
                                 return (
                                     <div key={dIdx} className={`border-r border-slate-100 last:border-r-0`}>
                                         {rowName === 'Verfügbar' ? (
-                                            <Droppable 
-                                                droppableId={`available__${dateStr}`} 
-                                                isDropDisabled={isReadOnly}
-                                                renderClone={renderAvailableClone}
-                                            >
+                                            <Droppable droppableId={`available__${dateStr}`} isDropDisabled={isReadOnly}>
                                                 {(provided, snapshot) => {
                                                     // Calculate available doctors
                                                     // Filter out doctors who are already assigned to a BLOCKING position
