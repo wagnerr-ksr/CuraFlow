@@ -1,31 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { User } from 'lucide-react';
 
 export default function DraggableDoctor({ doctor, index, style, isDragDisabled }) {
+  const [isPressed, setIsPressed] = useState(false);
+
   return (
     <Draggable draggableId={`sidebar-doc-${doctor.id}`} index={index} isDragDisabled={isDragDisabled}>
       {(provided, snapshot) => {
         const isDragging = snapshot.isDragging;
+        // Show compact version when pressed OR dragging
+        const isCompact = isPressed || isDragging;
 
-        // When dragging: use compact dimensions to fix cursor offset issue
-        // The drag clone should be small so its center aligns with cursor
-        const containerStyle = isDragging ? {
+        const containerStyle = {
           ...provided.draggableProps.style,
-          backgroundColor: 'transparent',
-          border: 'none',
-          boxShadow: 'none',
-          zIndex: 9999,
-          width: '60px',  // Compact width for better cursor alignment
-          height: '32px',
-        } : {
-          ...provided.draggableProps.style,
-          backgroundColor: style?.backgroundColor || '#ffffff',
-          color: style?.color || '#000000',
+          backgroundColor: isCompact ? 'transparent' : (style?.backgroundColor || '#ffffff'),
+          color: isCompact ? undefined : (style?.color || '#000000'),
+          border: isCompact ? 'none' : undefined,
+          boxShadow: isCompact ? 'none' : undefined,
+          zIndex: isDragging ? 9999 : 'auto',
+          // When compact (pressed or dragging), use small dimensions
+          width: isCompact ? '60px' : undefined,
+          height: isCompact ? '32px' : undefined,
         };
 
-        const containerClass = isDragging 
-          ? 'flex items-center justify-center'
+        const containerClass = isCompact 
+          ? 'flex items-center justify-center mb-2'
           : 'flex items-center space-x-2 p-2 rounded-md shadow-sm border border-slate-200 hover:opacity-90 transition-colors select-none mb-2 cursor-grab active:cursor-grabbing';
 
         return (
@@ -35,15 +35,16 @@ export default function DraggableDoctor({ doctor, index, style, isDragDisabled }
             {...provided.dragHandleProps}
             className={containerClass}
             style={containerStyle}
+            onMouseDown={() => setIsPressed(true)}
+            onMouseUp={() => setIsPressed(false)}
+            onMouseLeave={() => !isDragging && setIsPressed(false)}
           >
-            {isDragging ? (
+            {isCompact ? (
               <div 
-                className="flex items-center justify-center rounded-md font-bold border shadow-2xl ring-4 ring-indigo-400 px-2 py-1"
+                className="flex items-center justify-center rounded-md font-bold border shadow-lg ring-2 ring-indigo-400 px-2 py-1 w-full h-full"
                 style={{
                   backgroundColor: style?.backgroundColor || '#ffffff',
                   color: style?.color || '#000000',
-                  minWidth: '40px',
-                  zIndex: 9999,
                 }}
               >
                 <span className="text-xs">{doctor.initials || doctor.name.substring(0, 3)}</span>

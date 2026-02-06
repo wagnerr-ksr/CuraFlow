@@ -38,7 +38,7 @@ export default function DroppableCell({
               </div>
           )}
           {children}
-          {/* Always hide placeholder to prevent layout shift - the visual feedback comes from the ring/border */}
+          {/* Always hide placeholder to prevent layout shift */}
           <div style={{ display: 'none' }}>{provided.placeholder}</div>
         </div>
       )}
