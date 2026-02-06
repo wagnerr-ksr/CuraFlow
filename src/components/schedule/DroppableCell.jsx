@@ -3,7 +3,7 @@ import { Droppable } from '@hello-pangea/dnd';
 
 export default function DroppableCell({ 
     id, isToday, isWeekend, isDisabled, isReadOnly, disabledText, children, 
-    isAlternate, baseClassName, baseStyle, isTrainingHighlight, hidePlaceholder
+    isAlternate, baseClassName, baseStyle, isTrainingHighlight
 }) {
   return (
     <Droppable droppableId={id} isDropDisabled={isDisabled || isReadOnly} direction="horizontal">
@@ -38,11 +38,8 @@ export default function DroppableCell({
               </div>
           )}
           {children}
-          {hidePlaceholder ? (
-            <div style={{ display: 'none', width: 0, height: 0 }}>{provided.placeholder}</div>
-          ) : (
-            provided.placeholder
-          )}
+          {/* Always hide placeholder to prevent layout shift - the visual feedback comes from the ring/border */}
+          <div style={{ display: 'none' }}>{provided.placeholder}</div>
         </div>
       )}
     </Droppable>

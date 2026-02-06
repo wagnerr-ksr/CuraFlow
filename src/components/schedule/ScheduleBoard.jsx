@@ -3291,7 +3291,6 @@ export default function ScheduleBoard() {
                                                 isTrainingHighlight={isTrainingHighlight}
                                                 baseClassName={!customStyle && !rowStyle.backgroundColor ? section.rowColor : ''}
                                                 baseStyle={rowStyle.backgroundColor ? { backgroundColor: rowStyle.backgroundColor, color: rowStyle.color } : {}}
-                                                hidePlaceholder={!!draggingDoctorId || !!draggingShiftId}
                                             >
                                                 {renderCellShifts(
                                                     day, 
