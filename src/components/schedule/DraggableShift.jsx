@@ -19,7 +19,8 @@ export default function DraggableShift({ shift, doctor, index, onRemove, isFullW
     if (!containerRef.current) return;
     
     const container = containerRef.current;
-    const availableWidth = container.offsetWidth - 8; // 8px padding
+    // Subtract drag handle width (boxSize) + padding from available text area
+    const availableWidth = container.offsetWidth - boxSize - 12;
     
     if (availableWidth <= 20) return; // Not yet rendered properly
     
