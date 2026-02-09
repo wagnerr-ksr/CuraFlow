@@ -32,7 +32,7 @@ services:
   frontend:
     build:
       # Wir gehen eine Ebene hoch, um das Frontend-Dockerfile im Root zu finden:
-      context: .. 
+      context: .
       dockerfile: client/Dockerfile
       args:
         - VITE_API_URL=${COOLIFY_URL_BACKEND}
