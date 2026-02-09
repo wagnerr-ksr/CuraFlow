@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # 1. Datenbank (MySQL)
   db:
     image: mysql:8.0
     restart: always
@@ -13,7 +12,6 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
 
-  # 2. Backend (Express.js)
   backend:
     build:
       context: .
@@ -30,15 +28,14 @@ services:
     depends_on:
       - db
 
-  # 3. Frontend (React/Vite)
   frontend:
     build:
       context: .
-      dockerfile: client/Dockerfile
+      dockerfile: Dockerfile
+      # Das 'args' MUSS unter 'build' stehen:
+      args:
+        - VITE_API_URL=${COOLIFY_URL_BACKEND}
     environment:
-      - VITE_API_URL=${COOLIFY_URL_BACKEND}
-    # Diese Args sind extrem wichtig, damit Vite die API-URL beim Bauen erkennt!
-    args:
       - VITE_API_URL=${COOLIFY_URL_BACKEND}
     depends_on:
       - backend
