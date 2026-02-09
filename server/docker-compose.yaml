@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # 1. Datenbank (MySQL)
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQL_ROOT}
+      - MYSQL_DATABASE=curaflow
+      - MYSQL_USER=curaflow
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # 2. Backend (Express.js)
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${SERVICE_PASSWORD_JWT}
+      - FRONTEND_URL=${COOLIFY_URL_FRONTEND}
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=curaflow
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+      - MYSQL_DATABASE=curaflow
+    depends_on:
+      - db
+
+  # 3. Frontend (React/Vite)
+  frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    environment:
+      - VITE_API_URL=${COOLIFY_URL_BACKEND}
+    # Diese Args sind extrem wichtig, damit Vite die API-URL beim Bauen erkennt!
+    args:
+      - VITE_API_URL=${COOLIFY_URL_BACKEND}
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
