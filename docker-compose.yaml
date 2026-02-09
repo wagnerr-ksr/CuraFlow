@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQL_ROOT}
+      - MYSQL_DATABASE=curaflow
+      - MYSQL_USER=curaflow
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    build:
+      context: .
+      # Da Coolify schon im /server Ordner ist, liegt das Dockerfile direkt hier:
+      dockerfile: server/Dockerfile 
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${SERVICE_PASSWORD_JWT}
+      - FRONTEND_URL=${COOLIFY_URL_FRONTEND}
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=curaflow
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+      - MYSQL_DATABASE=curaflow
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      # Wir gehen eine Ebene hoch, um das Frontend-Dockerfile im Root zu finden:
+      context: .. 
+      dockerfile: client/Dockerfile
+      args:
+        - VITE_API_URL=${COOLIFY_URL_BACKEND}
+    environment:
+      - VITE_API_URL=${COOLIFY_URL_BACKEND}
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
