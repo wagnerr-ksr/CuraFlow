@@ -15,7 +15,8 @@ services:
   backend:
     build:
       context: .
-      dockerfile: server/Dockerfile
+      # Da Coolify schon im /server Ordner ist, liegt das Dockerfile direkt hier:
+      dockerfile: Dockerfile 
     environment:
       - NODE_ENV=production
       - JWT_SECRET=${SERVICE_PASSWORD_JWT}
@@ -30,9 +31,9 @@ services:
 
   frontend:
     build:
-      context: .
+      # Wir gehen eine Ebene hoch, um das Frontend-Dockerfile im Root zu finden:
+      context: .. 
       dockerfile: Dockerfile
-      # Das 'args' MUSS unter 'build' stehen:
       args:
         - VITE_API_URL=${COOLIFY_URL_BACKEND}
     environment:
